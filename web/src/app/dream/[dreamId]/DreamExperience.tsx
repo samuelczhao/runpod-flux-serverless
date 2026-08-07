@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { dreamStorySchema, type DreamStory } from "@/lib/domain/story";
@@ -17,7 +17,41 @@ export function DreamExperience({ dreamId }: { readonly dreamId: string }) {
   if (error) return <StateMessage title="The trace went quiet" copy={error} />;
   if (!story) return <StateMessage title="Opening the dream" copy="Restoring your private journal…" />;
   if (story.status === "FAILED") return <FailureState story={story} />;
+  if (story.awaitingTranscriptReview) return <TranscriptReview story={story} />;
   return story.status === "READY" ? <StoryView story={story} /> : <ProcessingView story={story} />;
+}
+
+function TranscriptReview({ story }: { readonly story: DreamStory }) {
+  const [transcript, setTranscript] = useState(story.transcript ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submit = (event: FormEvent<HTMLFormElement>) => void confirmTranscript(
+    event, story.id, transcript, setSubmitting, setError,
+  );
+  return (
+    <section className="transcript-review">
+      <p className="eyebrow">Transcription ready</p>
+      <h1>Is this what you remember?</h1>
+      <p>Correct anything Whisper misheard. Image generation starts only after you confirm.</p>
+      <TranscriptForm {...{ transcript, setTranscript, error, submitting, submit }} />
+    </section>
+  );
+}
+
+function TranscriptForm({ transcript, setTranscript, error, submitting, submit }: {
+  readonly transcript: string; readonly setTranscript: (value: string) => void;
+  readonly error: string | null; readonly submitting: boolean;
+  readonly submit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return <form className="capture-card" onSubmit={submit}>
+    <label htmlFor="dream-transcript">Your dream</label>
+    <textarea id="dream-transcript" minLength={10} maxLength={12_000} required
+      value={transcript} onChange={(event) => setTranscript(event.target.value)} />
+    {error ? <p className="form-error" role="alert">{error}</p> : null}
+    <button className="button primary" disabled={submitting} type="submit">
+      {submitting ? "Starting the trace…" : "Confirm and create the story"}
+    </button>
+  </form>;
 }
 
 function ProcessingView({ story }: { readonly story: DreamStory }) {
@@ -81,6 +115,25 @@ async function fetchDream(dreamId: string): Promise<DreamStory> {
   const response = await fetch(`/api/dreams/${dreamId}`, { cache: "no-store" });
   if (!response.ok) throw new Error(`Dream request failed with HTTP ${response.status}`);
   return dreamStorySchema.parse(await response.json() as unknown);
+}
+
+async function confirmTranscript(
+  event: FormEvent<HTMLFormElement>,
+  dreamId: string,
+  transcript: string,
+  setSubmitting: (value: boolean) => void,
+  setError: (value: string | null) => void,
+): Promise<void> {
+  event.preventDefault();
+  setSubmitting(true);
+  setError(null);
+  const response = await fetch(`/api/dreams/${dreamId}/transcript`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transcript }),
+  });
+  if (!response.ok) {
+    setError("The corrected transcript could not be confirmed.");
+    setSubmitting(false);
+  }
 }
 
 function stageLabel(status: DreamStory["status"]): string {

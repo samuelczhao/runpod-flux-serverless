@@ -59,6 +59,34 @@ export async function claimDreamWorkflow(
   return rows[0] ? { workflowId: rows[0].workflow_id, claimed: rows[0].claimed } : null;
 }
 
+export async function claimAudioPlanWorkflow(
+  dreamId: string,
+  userId: string,
+  transcript: string,
+  token: string,
+): Promise<WorkflowClaim | null> {
+  const result = await createSupabaseAdminClient().rpc("claim_audio_plan_workflow", {
+    p_dream_id: dreamId, p_user_id: userId, p_transcript: transcript, p_claim_token: token,
+  });
+  throwIfDatabaseError(result.error);
+  const rows = parseDatabaseRows(workflowClaimSchema, result.data);
+  return rows[0] ? { workflowId: rows[0].workflow_id, claimed: rows[0].claimed } : null;
+}
+
+export async function completeAudioUpload(
+  dreamId: string,
+  userId: string,
+  path: string,
+  mimeType: string,
+  sizeBytes: number,
+): Promise<void> {
+  const result = await createSupabaseAdminClient().rpc("complete_audio_upload", {
+    p_dream_id: dreamId, p_user_id: userId, p_storage_path: path,
+    p_mime_type: mimeType, p_size_bytes: sizeBytes,
+  });
+  throwIfDatabaseError(result.error);
+}
+
 export async function recordDreamWorkflow(dreamId: string, token: string, runId: string): Promise<void> {
   const result = await createSupabaseAdminClient().rpc("record_dream_workflow", {
     p_dream_id: dreamId, p_claim_token: token, p_run_id: runId,
@@ -92,4 +120,4 @@ function transitionArgs(dreamId: string, expected: DreamStatus, next: DreamStatu
   return { p_dream_id: dreamId, p_expected: expected, p_next: next };
 }
 
-const DREAM_FIELDS = "id,user_id,status,input_mode,transcript,audio_storage_path,visual_bible,plan_hash";
+const DREAM_FIELDS = "id,user_id,status,input_mode,transcript,audio_storage_path,retain_audio,visual_bible,plan_hash";

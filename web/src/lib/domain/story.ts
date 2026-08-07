@@ -12,6 +12,9 @@ export const storySceneSchema = z.object({
 export const dreamStorySchema = z.object({
   id: z.uuid(),
   status: dreamStatusSchema,
+  inputMode: z.enum(["audio", "text"]),
+  transcript: z.string().nullable(),
+  awaitingTranscriptReview: z.boolean(),
   title: z.string().nullable(),
   summary: z.string().nullable(),
   mood: z.array(z.string()),

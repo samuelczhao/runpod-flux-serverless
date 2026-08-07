@@ -21,6 +21,7 @@ export const processingDreamSchema = z.object({
   input_mode: z.enum(["audio", "text"]),
   transcript: z.string().nullable(),
   audio_storage_path: z.string().nullable(),
+  retain_audio: z.boolean(),
   visual_bible: z.string().nullable(),
   plan_hash: z.string().nullable(),
 }).strict();

@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { AudioCapture } from "@/app/capture/AudioCapture";
 
 const createResponseSchema = z.object({ dreamId: z.uuid(), runId: z.string() }).strict();
 
@@ -13,11 +14,27 @@ export function CaptureClient() {
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<"speak" | "type">("speak");
   useEffect(() => { void prepareAnonymousSession(setReady, setError); }, []);
   const submit = (event: FormEvent<HTMLFormElement>) => void submitCapture(
     event, transcript, (path) => router.push(path), setSubmitting, setError,
   );
-  return <CaptureForm {...{ ready, transcript, setTranscript, error, submitting, submit }} />;
+  return <><CaptureModeSwitch mode={mode} setMode={setMode} />
+    {mode === "speak" ? <AudioCapture ready={ready} onComplete={(id) => router.push(`/dream/${id}`)} />
+      : <CaptureForm {...{ ready, transcript, setTranscript, error, submitting, submit }} />}</>;
+}
+
+function CaptureModeSwitch({
+  mode,
+  setMode,
+}: {
+  readonly mode: "speak" | "type";
+  readonly setMode: (mode: "speak" | "type") => void;
+}) {
+  return <div className="capture-mode" aria-label="Dream input method" role="group">
+    <button aria-pressed={mode === "speak"} onClick={() => setMode("speak")} type="button">Speak</button>
+    <button aria-pressed={mode === "type"} onClick={() => setMode("type")} type="button">Type</button>
+  </div>;
 }
 
 interface CaptureFormProps {

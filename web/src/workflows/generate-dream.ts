@@ -17,7 +17,7 @@ export async function generateDreamWorkflow(dreamId: string): Promise<{ dreamId:
     await finalizeDreamStep(dreamId);
     return { dreamId, status: "READY" };
   } catch (error: unknown) {
-    await failDreamStep(dreamId);
+    await failDreamStep(dreamId, "generation");
     throw error;
   }
 }

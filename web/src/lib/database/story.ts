@@ -8,6 +8,7 @@ import { dreamStorySchema, type DreamStory, type StoryScene } from "@/lib/domain
 const dreamRowSchema = z.object({
   id: z.uuid(), status: z.string(), title: z.string().nullable(), summary: z.string().nullable(),
   mood: z.array(z.string()), failed_stage: z.string().nullable(), error_code: z.string().nullable(),
+  input_mode: z.enum(["audio", "text"]), transcript: z.string().nullable(), workflow_run_id: z.string().nullable(),
 }).strict();
 const sceneRowSchema = z.object({
   id: z.uuid(), ordinal: z.number().int(), caption: z.string(),
@@ -26,6 +27,8 @@ export async function readDreamStory(
   const storyScenes = await attachSelectedImages(client, scenes);
   return dreamStorySchema.parse({
     id: dream.id, status: dream.status, title: dream.title, summary: dream.summary,
+    inputMode: dream.input_mode, transcript: dream.transcript,
+    awaitingTranscriptReview: needsTranscriptReview(dream),
     mood: dream.mood, failedStage: dream.failed_stage, errorCode: dream.error_code, scenes: storyScenes,
   });
 }
@@ -71,4 +74,9 @@ async function attachImage(
   return { ...scene, versionId: version.id, imageUrl: z.url().parse(result.data?.signedUrl) };
 }
 
-const DREAM_FIELDS = "id,status,title,summary,mood,failed_stage,error_code";
+function needsTranscriptReview(dream: z.infer<typeof dreamRowSchema>): boolean {
+  return dream.input_mode === "audio" && dream.status === "PLANNING"
+    && dream.workflow_run_id === null && Boolean(dream.transcript);
+}
+
+const DREAM_FIELDS = "id,status,input_mode,transcript,workflow_run_id,title,summary,mood,failed_stage,error_code";

@@ -83,4 +83,15 @@ export async function completeImageJob(
   throwIfDatabaseError(result.error);
 }
 
+export async function completeTranscriptionJob(
+  jobId: string,
+  transcript: string,
+  metrics: Omit<JobMetrics, "p_error_code">,
+): Promise<void> {
+  const result = await createSupabaseAdminClient().rpc("complete_transcription_job", {
+    p_job_id: jobId, p_transcript: transcript, ...metrics,
+  });
+  throwIfDatabaseError(result.error);
+}
+
 const JOB_FIELDS = "id,user_id,dream_id,scene_version_id,stage,model,external_job_id,status,request_hash";

@@ -5,7 +5,7 @@ export async function finalizeDreamStep(dreamId: string): Promise<void> {
   await finalizeDream(dreamId);
 }
 
-export async function failDreamStep(dreamId: string): Promise<void> {
+export async function failDreamStep(dreamId: string, stage = "generation"): Promise<void> {
   "use step";
-  await failDream(dreamId, "generation", "WORKFLOW_FAILED");
+  await failDream(dreamId, stage, "WORKFLOW_FAILED");
 }

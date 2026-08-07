@@ -13,7 +13,11 @@ type DreamRow = {
   status: DreamStatus;
   input_mode: string;
   transcript: string | null;
+  raw_transcript: string | null;
   audio_storage_path: string | null;
+  audio_mime_type: string | null;
+  audio_size_bytes: number | null;
+  audio_uploaded_at: string | null;
   title: string | null;
   summary: string | null;
   visual_bible: string | null;
@@ -127,6 +131,25 @@ export type Database = {
         p_dream_id: string; p_claim_token: string; p_run_id: string;
       }>;
       release_dream_workflow_claim: VoidFunction<{ p_dream_id: string; p_claim_token: string }>;
+      complete_audio_upload: VoidFunction<{
+        p_dream_id: string;
+        p_user_id: string;
+        p_storage_path: string;
+        p_mime_type: string;
+        p_size_bytes: number;
+      }>;
+      complete_transcription_job: VoidFunction<{
+        p_job_id: string;
+        p_transcript: string;
+        p_delay_ms?: number | null;
+        p_execution_ms?: number | null;
+      }>;
+      claim_audio_plan_workflow: {
+        Args: { p_dream_id: string; p_user_id: string; p_transcript: string; p_claim_token: string };
+        Returns: { workflow_id: string; claimed: boolean }[];
+      };
+      mark_audio_deleted: VoidFunction<{ p_dream_id: string; p_storage_path: string }>;
+      prepare_audio_deletion: { Args: { p_dream_id: string }; Returns: string | null };
       finalize_dream: VoidFunction<{ p_dream_id: string }>;
       claim_generation_job: {
         Args: {
