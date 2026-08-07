@@ -32,8 +32,7 @@ inputs, or logs. The Hugging Face token belongs only in Runpod's Model configura
 | Setting | Submission/default | Live presentation | Rationale |
 | --- | --- | --- | --- |
 | Endpoint name | `flux-1-dev-case-study` | same | Recognizable |
-| GPU priority 1 | A100 80 GB | same | Fits unquantized BF16 model |
-| GPU priority 2 | H100 80 GB | same | Availability fallback |
+| GPU pool | H100 80 GB variants | same | Fits unquantized BF16 model |
 | GPUs per worker | 1 | 1 | Pipeline is single-GPU |
 | Active workers | 0 | 1 | Cost control; remove demo cold start |
 | Max workers | 1 | 1 | Hard cost and concurrency bound |
@@ -50,8 +49,9 @@ the adjacent access-token field. Runpod mounts the snapshot under
 snapshot and then loads with offline mode enabled.
 
 The model card states that FLUX.1-dev needs about 50 GB of RAM/VRAM to load all
-components. A 48 GB GPU therefore is not an honest no-offload target. A100/H100 80 GB
-keeps the implementation simple and its performance explanation defensible.
+components. A 48 GB GPU therefore is not an honest no-offload target. The configured
+H100 80 GB pool keeps the implementation simple and its performance explanation
+defensible.
 
 ## Build design
 
@@ -60,9 +60,9 @@ locked Python dependency graph. It deliberately does not contain the roughly 58 
 gated weights.
 
 This is a direct use of Runpod's cached-model feature, which is documented to reduce
-cold-start cost and image size. It also avoids GitHub builder limits: a 30-minute Docker
-build and an 80 GB final image. The model remains an explicit part of the endpoint
-deployment even though the weight bytes are provisioned separately from the container.
+cold-start cost and image size. It also avoids GitHub builder limits, including the 80 GB
+final-image cap. The model remains an explicit part of the endpoint deployment even
+though the weight bytes are provisioned separately from the container.
 
 ## Releases and rollback
 

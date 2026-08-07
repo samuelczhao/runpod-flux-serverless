@@ -15,7 +15,7 @@ Current local evidence:
 | Check | Result |
 | --- | --- |
 | mypy strict | Passed, 14 source files |
-| pytest | Passed, 52 tests |
+| pytest | Passed, 53 tests |
 | Ruff | Passed |
 
 The unit suite covers default and boundary inputs, malformed types, booleans as integers,
@@ -24,18 +24,18 @@ snapshots, exact generator arguments, PNG signatures, a full 1024×1024 response
 failed-job semantics through Runpod's SDK, sync-to-async fallback, sanitized inference
 errors, and prompt/image log redaction.
 
-These results validate application behavior only. They are not evidence of successful
-CUDA inference or a deployed endpoint.
+These checks validate application behavior without downloading the gated model. The live
+evidence below separately validates the deployed CUDA path.
 
 ## Live GPU smoke test
 
-Start with the cheapest valid request:
+The deployed smoke input is versioned as `test_input_smoke.json`:
 
 ```json
 {
   "input": {
-    "prompt": "A simple blue ceramic cup on a white table",
-    "seed": 7,
+    "prompt": "A small red panda astronaut reading a map on Mars, cinematic lighting",
+    "seed": 42,
     "width": 512,
     "height": 512,
     "num_inference_steps": 1,
@@ -44,13 +44,13 @@ Start with the cheapest valid request:
 }
 ```
 
-Acceptance criteria:
+Observed result:
 
-- Job reaches `COMPLETED`.
-- Decoded output starts with the PNG signature and opens successfully.
-- Response reports seed 7, 512×512, one step, model ID, and a non-empty revision.
-- Worker logs show `model_loading`, `worker_ready`, `generation_started`, and
-  `generation_completed` without prompt text or base64.
+- Job reached `COMPLETED` and decoded to a valid 512×512 RGB PNG.
+- Response reported seed 42, one step, the FLUX.1-dev model ID, and cached revision
+  `3de623fc3c33e44ffbe2bad470d0f45bccf2eb21`.
+- The first post-deploy request reported 26.637 seconds of queue delay while the worker
+  initialized, followed by 0.734 seconds of inference.
 
 ## Full-quality acceptance
 
@@ -91,13 +91,21 @@ With Active workers at 0:
 3. Immediately submit three identical warm requests and record delay/execution time.
 4. Report median warm execution time and the observed cold-start total separately.
 
-Do not publish projected numbers. Fill this table only with measured Runpod results:
+Measured on August 7, 2026 against the configured H100 80 GB pool:
 
-| Scenario | GPU | Queue delay | Initialization | Inference | Total |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Cold 512×512, 1 step | pending | pending | pending | pending | pending |
-| Warm 512×512, 1 step median | pending | n/a | n/a | pending | pending |
-| Warm 1024×1024, 50 steps | pending | n/a | n/a | pending | pending |
+| Scenario | Queue delay | Inference | Worker total | Runpod execution |
+| --- | ---: | ---: | ---: | ---: |
+| First post-deploy 512×512, 1 step | 26.637 s | 0.734 s | 0.876 s | 1.377 s |
+| Warm 512×512, 1 step median (n=3) | 0.147 s | 0.161 s | 0.257 s | 0.719 s |
+| Warm 1024×1024, 50 steps | 0.142 s | 10.452 s | 10.787 s | 11.624 s |
+
+Runpod did not expose worker initialization as a separate response field; the first
+request's queue delay includes time spent waiting for the initializing worker. All four
+seed-42 smoke PNGs were byte-identical with SHA-256
+`cdd17876d979b29e57b76aca443e93ffecd65200f51fdd605434ee8a7f6e37b2`.
+
+The invalid-width job reached `FAILED` with
+`invalid_input:width: must be divisible by 16` and no traceback.
 
 ## Queue check
 
