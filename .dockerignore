@@ -1,0 +1,6 @@
+*
+!handler.py
+!pyproject.toml
+!uv.lock
+!src/
+!src/**
