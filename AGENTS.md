@@ -9,3 +9,5 @@
   or editable-install path injection.
 - Keep `src` explicit in pytest's import path for this src-layout project; do not rely
   on platform-specific editable-install behavior.
+- `next typegen && tsc --noEmit` creates `web/tsconfig.tsbuildinfo`; keep incremental
+  compiler caches ignored and review staged generated files before committing.
