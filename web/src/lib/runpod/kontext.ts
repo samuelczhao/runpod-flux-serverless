@@ -12,6 +12,11 @@ export interface KontextInput {
   readonly seed?: number;
 }
 
+export interface KontextOutput {
+  readonly imageUrl: string;
+  readonly cost: number | undefined;
+}
+
 export function buildKontextInput(input: KontextInput): Readonly<Record<string, unknown>> {
   return {
     prompt: z.string().trim().min(1).max(2_000).parse(input.prompt),
@@ -27,6 +32,10 @@ export function buildKontextInput(input: KontextInput): Readonly<Record<string, 
 }
 
 export function normalizeKontextImageUrl(output: unknown): string {
+  return normalizeKontextOutput(output).imageUrl;
+}
+
+export function normalizeKontextOutput(output: unknown): KontextOutput {
   const parsed = kontextOutputSchema.parse(output);
   if (parsed.image_url && parsed.result && parsed.image_url !== parsed.result) {
     throw new Error("Runpod Kontext returned conflicting image URLs");
@@ -35,7 +44,7 @@ export function normalizeKontextImageUrl(output: unknown): string {
   if (!value) {
     throw new Error("Runpod Kontext returned no image URL");
   }
-  return requireHttpsUrl(value);
+  return { imageUrl: requireHttpsUrl(value), cost: parsed.cost };
 }
 
 function requireHttpsUrl(value: string): string {

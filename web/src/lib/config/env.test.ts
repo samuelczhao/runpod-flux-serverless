@@ -21,6 +21,11 @@ describe("environment boundaries", () => {
   it("keeps the unprovisioned Whisper endpoint optional", () => {
     process.env = { ...ORIGINAL_ENV, RUNPOD_API_KEY: "key", RUNPOD_ENDPOINT_ID: "flux" };
     delete process.env.RUNPOD_WHISPER_ENDPOINT_ID;
-    expect(getRunpodEnv()).toEqual({ apiKey: "key", fluxEndpointId: "flux", whisperEndpointId: undefined });
+    expect(getRunpodEnv()).toEqual({
+      apiKey: "key",
+      fluxEndpointId: "flux",
+      kontextEndpointId: "black-forest-labs-flux-1-kontext-dev",
+      whisperEndpointId: undefined,
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { kontextCostUsd, qwenCostUsd, sumCostsUsd } from "@/lib/domain/cost";
+import { kontextCostUsd, providerCostUsd, qwenCostUsd, sumCostsUsd } from "@/lib/domain/cost";
 
 describe("generation cost", () => {
   it("uses decimal arithmetic at the money boundary", () => {
@@ -15,5 +15,10 @@ describe("generation cost", () => {
   it("handles zero without negative zero", () => {
     expect(qwenCostUsd(0)).toBe("0.00000000");
     expect(kontextCostUsd(0)).toBe("0.00000000");
+  });
+
+  it("normalizes provider costs at the database scale", () => {
+    expect(providerCostUsd(0.025)).toBe("0.02500000");
+    expect(() => providerCostUsd(Number.NaN)).toThrow("finite");
   });
 });

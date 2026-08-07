@@ -19,6 +19,11 @@ export function sumCostsUsd(costs: readonly string[]): string {
   return costs.reduce((total, cost) => total.add(cost), new Decimal(0)).toFixed(COST_SCALE);
 }
 
+export function providerCostUsd(cost: number): string {
+  if (!Number.isFinite(cost) || cost < 0) throw new Error("Provider cost must be finite and non-negative");
+  return new Decimal(cost.toString()).toFixed(COST_SCALE);
+}
+
 function validateTokenCount(tokenCount: number): void {
   if (!Number.isSafeInteger(tokenCount) || tokenCount < 0) {
     throw new Error("Token count must be a non-negative safe integer");

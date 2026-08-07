@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildKontextInput, normalizeKontextImageUrl } from "@/lib/runpod/kontext";
+import { buildKontextInput, normalizeKontextImageUrl, normalizeKontextOutput } from "@/lib/runpod/kontext";
 
 describe("Kontext contract", () => {
   it.each(["image_url", "result"])("accepts the %s response field", (field) => {
@@ -8,6 +8,13 @@ describe("Kontext contract", () => {
 
   it("rejects conflicting compatibility fields", () => {
     expect(() => normalizeKontextImageUrl({ image_url: "https://a.test/a.png", result: "https://b.test/b.png" })).toThrow("conflicting");
+  });
+
+  it("preserves the provider cost for exact accounting", () => {
+    expect(normalizeKontextOutput({ image_url: "https://cdn.runpod.ai/a.png", cost: 0.025 })).toEqual({
+      imageUrl: "https://cdn.runpod.ai/a.png",
+      cost: 0.025,
+    });
   });
 
   it("always enables the safety checker", () => {
