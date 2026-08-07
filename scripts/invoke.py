@@ -10,7 +10,7 @@ from typing import cast
 
 import requests
 
-from runpod_flux.contracts import JsonObject
+type JsonObject = dict[str, object]
 
 API_BASE = "https://api.runpod.ai/v2/{endpoint_id}"
 DEFAULT_INPUT_PATH = Path("test_input.json")

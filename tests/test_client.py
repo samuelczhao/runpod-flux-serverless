@@ -1,4 +1,7 @@
 import base64
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -6,6 +9,22 @@ import pytest
 from scripts import invoke
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\ncontent"
+REPOSITORY_ROOT = Path(__file__).parents[1]
+
+
+def test_cli_help_runs_without_project_import_path() -> None:
+    environment = os.environ.copy()
+    environment.pop("PYTHONPATH", None)
+    completed = subprocess.run(
+        [sys.executable, "scripts/invoke.py", "--help"],
+        cwd=REPOSITORY_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "Invoke the Runpod FLUX endpoint" in completed.stdout
 
 
 def test_sync_falls_back_to_poll_for_running_job(monkeypatch: pytest.MonkeyPatch) -> None:

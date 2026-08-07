@@ -30,9 +30,9 @@ image layer, and model downloads happen outside billed worker startup.
 ### Unquantized BF16 on one 80 GB GPU
 
 This uses the evaluator's model as published, without introducing quantization quality
-changes or CPU offload latency. A100 80 GB is the cost-oriented first choice; H100 80 GB
-is the availability fallback. GPU concurrency is one request per worker and the endpoint
-is capped at one worker for this case study.
+changes or CPU offload latency. The deployed endpoint enables Runpod's H100 SXM, H100
+NVL, and H100 PCIe variants for availability. GPU concurrency is one request per worker,
+and the endpoint is capped at one worker for this case study.
 
 Tradeoff: this is more expensive per second than a quantized or offloaded deployment.
 Those options would require separate quality and latency evaluation, which is outside

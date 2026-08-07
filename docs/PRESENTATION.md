@@ -19,12 +19,12 @@
 3. **Code — 90 seconds.** Show `handler.py`, model initialization, input validation, and
    the deterministic response metadata.
 4. **Deployment — 60 seconds.** Show the completed GitHub build and endpoint settings.
-   Explain A100/H100 80 GB, cached gated weights, Max workers 1, and FlashBoot.
+   Explain the H100 80 GB pool, cached gated weights, Max workers 1, and FlashBoot.
 5. **Live request — 90 seconds.** Run the client, show job ID/status, open the saved PNG,
    and point out the returned seed and model revision.
 6. **Engineering judgment — 60 seconds.** Explain cached weights versus baking 58 GB,
    base64 versus object storage, and unquantized BF16 versus quantization/offload.
-7. **Evidence — 30 seconds.** Show CI, 52 unit tests, and measured cold/warm results.
+7. **Evidence — 30 seconds.** Show CI, 53 unit tests, and measured cold/warm results.
 
 ## Live command
 
@@ -42,7 +42,7 @@ uv run python scripts/invoke.py --output artifacts/live-demo.png
 ## Failure recovery
 
 - **Cold worker:** narrate the initialization logs and use the async request.
-- **GPU unavailable:** show the queued state and the A100/H100 priority configuration.
+- **GPU unavailable:** show the queued state and the three enabled H100 variants.
 - **Build regression:** roll back from Runpod's Builds tab and explain the release gate.
 - **Live API issue:** show the last successful Runpod job, redacted JSON, image, and exact
   commit/release used. Never substitute an unverified claim.
@@ -50,8 +50,9 @@ uv run python scripts/invoke.py --output artifacts/live-demo.png
 ## Likely questions
 
 **Why not put the model in the image?** Runpod explicitly provides gated model caching;
-it avoids credentials in image layers, a roughly 58 GB weight transfer, the 30-minute
-build limit, and billed download time while preserving the exact revision in responses.
+it avoids credentials in image layers, a roughly 58 GB weight transfer, builder time,
+the 80 GB image limit, and billed download time while preserving the exact revision in
+responses.
 
 **Why an 80 GB GPU?** The model card reports about 50 GB to load all components. This
 keeps the reference BF16 pipeline on one GPU without offload or quantization tradeoffs.
@@ -63,6 +64,6 @@ production volume, measure payloads and return an expiring object-store URL.
 workers at 1 for predictable spend; increasing it is an endpoint setting, but requires a
 load and cost test first.
 
-**What would you improve next?** Measure cold/warm latency, then decide between a warm
-worker, quantization, or compile strategies. Add object storage only if response size or
-retention becomes an actual constraint.
+**What would you improve next?** Use the measured cold/warm latency to decide whether a
+warm worker is worth its idle cost, then evaluate quantization or compilation separately.
+Add object storage only if response size or retention becomes an actual constraint.
