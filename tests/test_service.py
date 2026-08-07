@@ -1,11 +1,12 @@
+import asyncio
 import base64
 import logging
 
 import pytest
 from PIL import Image
+from runpod.serverless.modules import rp_job
 
 from runpod_flux.contracts import GenerationRequest
-from runpod_flux.errors import InferenceError, InputValidationError
 from runpod_flux.service import GenerationService
 
 SECRET_MARKER = "do-not-log-this-prompt"
@@ -27,6 +28,11 @@ class StubGenerator:
         return Image.new("RGB", (request.width, request.height), color="blue")
 
 
+class WrongSizeGenerator(StubGenerator):
+    def generate(self, request: GenerationRequest) -> Image.Image:
+        return Image.new("RGB", (1, 1))
+
+
 def test_returns_image_and_reproducibility_metadata() -> None:
     generator = StubGenerator()
     result = GenerationService(generator).handle(_job())
@@ -38,17 +44,41 @@ def test_returns_image_and_reproducibility_metadata() -> None:
     assert generator.requests[0].prompt == SECRET_MARKER
 
 
-def test_invalid_input_raises_for_failed_job_state() -> None:
-    with pytest.raises(InputValidationError, match="prompt"):
-        GenerationService(StubGenerator()).handle({"id": "job-1", "input": {}})
+def test_invalid_input_uses_reserved_error_contract() -> None:
+    result = GenerationService(StubGenerator()).handle({"id": "job-1", "input": {}})
+
+    assert result == {"error": "invalid_input:prompt: must be a string"}
 
 
 def test_sanitizes_inference_failure(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level(logging.ERROR), pytest.raises(InferenceError) as captured:
-        GenerationService(StubGenerator(fail=True)).handle(_job())
+    with caplog.at_level(logging.ERROR):
+        result = GenerationService(StubGenerator(fail=True)).handle(_job())
 
-    assert str(captured.value) == "Image generation failed"
-    assert "private backend detail" not in str(captured.value)
+    assert result == {"error": "inference_failed: Image generation failed"}
+    assert "private backend detail" not in caplog.text
+
+
+def test_rejects_generated_image_with_wrong_dimensions() -> None:
+    result = GenerationService(WrongSizeGenerator()).handle(_job())
+
+    assert result == {"error": "inference_failed: Image generation failed"}
+
+
+def test_runpod_sdk_returns_sanitized_validation_failure() -> None:
+    service = GenerationService(StubGenerator())
+
+    result = asyncio.run(rp_job.run_job(service.handle, {"id": "job-1", "input": {}}))
+
+    assert result == {"error": "invalid_input:prompt: must be a string"}
+
+
+def test_runpod_sdk_does_not_serialize_private_exception() -> None:
+    service = GenerationService(StubGenerator(fail=True))
+
+    result = asyncio.run(rp_job.run_job(service.handle, _job()))
+
+    assert result == {"error": "inference_failed: Image generation failed"}
+    assert "private backend detail" not in str(result)
 
 
 def test_logs_metadata_without_prompt_or_image(caplog: pytest.LogCaptureFixture) -> None:

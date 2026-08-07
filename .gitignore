@@ -12,6 +12,7 @@ coverage.xml
 htmlcov/
 build/
 dist/
+artifacts/
+generated.png
 *.egg-info/
 .DS_Store
-

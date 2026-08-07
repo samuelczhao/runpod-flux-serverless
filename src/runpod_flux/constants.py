@@ -17,6 +17,8 @@ MAX_GUIDANCE_SCALE = 10.0
 MAX_PROMPT_LENGTH = 2_000
 MAX_SEED = (2**63) - 1
 MAX_BASE64_CHARACTERS = 8_000_000
+MILLISECONDS_PER_SECOND = 1_000
+INFERENCE_ERROR_MESSAGE = "inference_failed: Image generation failed"
 ALLOWED_INPUT_FIELDS = frozenset(
     {
         "prompt",

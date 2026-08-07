@@ -42,12 +42,21 @@ def test_accepts_boundary_values() -> None:
         ({"input": None}, "input"),
         ({"input": {}}, "prompt"),
         ({"input": {"prompt": " "}}, "prompt"),
+        ({"input": {"prompt": 1}}, "prompt"),
         ({"input": {"prompt": "x", "seed": True}}, "seed"),
+        ({"input": {"prompt": "x", "seed": MAX_SEED + 1}}, "seed"),
+        ({"input": {"prompt": "x", "width": True}}, "width"),
         ({"input": {"prompt": "x", "width": 511}}, "width"),
         ({"input": {"prompt": "x", "width": 520}}, "width"),
+        ({"input": {"prompt": "x", "height": False}}, "height"),
         ({"input": {"prompt": "x", "height": 1040}}, "height"),
+        ({"input": {"prompt": "x", "num_inference_steps": True}}, "num_inference_steps"),
         ({"input": {"prompt": "x", "num_inference_steps": 0}}, "num_inference_steps"),
+        ({"input": {"prompt": "x", "guidance_scale": True}}, "guidance_scale"),
+        ({"input": {"prompt": "x", "guidance_scale": math.nan}}, "guidance_scale"),
         ({"input": {"prompt": "x", "guidance_scale": math.inf}}, "guidance_scale"),
+        ({"input": {"prompt": "x", "guidance_scale": -0.1}}, "guidance_scale"),
+        ({"input": {"prompt": "x", "guidance_scale": 10.1}}, "guidance_scale"),
         ({"input": {"prompt": "x", "unexpected": 1}}, "input"),
     ],
 )
@@ -61,3 +70,21 @@ def test_rejects_invalid_input(job: dict[str, object], field: str) -> None:
 def test_rejects_overlong_prompt() -> None:
     with pytest.raises(InputValidationError, match="at most"):
         validate_job({"input": {"prompt": "x" * (MAX_PROMPT_LENGTH + 1)}})
+
+
+def test_accepts_maximum_values() -> None:
+    request = validate_job(
+        {
+            "input": {
+                "prompt": "x" * MAX_PROMPT_LENGTH,
+                "seed": MAX_SEED,
+                "width": 1024,
+                "height": 1024,
+                "num_inference_steps": 50,
+                "guidance_scale": 10,
+            }
+        }
+    )
+
+    assert request.seed == MAX_SEED
+    assert request.num_inference_steps == 50

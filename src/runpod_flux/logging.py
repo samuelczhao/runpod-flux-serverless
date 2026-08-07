@@ -11,9 +11,3 @@ def configure_logging() -> None:
 def log_event(event: str, *, level: int = logging.INFO, **fields: object) -> None:
     payload = json.dumps({"event": event, **fields}, default=str, sort_keys=True)
     LOGGER.log(level, payload)
-
-
-def log_exception(event: str, **fields: object) -> None:
-    payload = json.dumps({"event": event, **fields}, default=str, sort_keys=True)
-    LOGGER.exception(payload)
-

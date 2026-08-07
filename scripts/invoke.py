@@ -1,6 +1,7 @@
 import argparse
 import base64
 import json
+import math
 import os
 import time
 from dataclasses import dataclass
@@ -17,9 +18,13 @@ DEFAULT_OUTPUT_PATH = Path("generated.png")
 DEFAULT_POLL_SECONDS = 2.0
 DEFAULT_TIMEOUT_SECONDS = 900
 REQUEST_TIMEOUT_SECONDS = 30
-SYNC_WAIT_MILLISECONDS = 300_000
+MIN_SYNC_WAIT_MILLISECONDS = 1_000
+MAX_SYNC_WAIT_MILLISECONDS = 300_000
+MILLISECONDS_PER_SECOND = 1_000
+SYNC_RESPONSE_BUFFER_SECONDS = 30
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 TERMINAL_STATUSES = frozenset({"COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT"})
+ACTIVE_STATUSES = frozenset({"IN_QUEUE", "IN_PROGRESS"})
 
 
 class ClientError(RuntimeError):
@@ -84,17 +89,27 @@ def _invoke(
     options: Options,
 ) -> JsonObject:
     if options.sync:
-        return _invoke_sync(endpoint_id, api_key, job_input)
+        return _invoke_sync(endpoint_id, api_key, job_input, options.timeout_seconds)
     submitted = _post(endpoint_id, api_key, "run", job_input)
     job_id = _string_field(submitted, "id")
     print(f"submitted job {job_id}")
     return _poll(endpoint_id, api_key, job_id, options.timeout_seconds)
 
 
-def _invoke_sync(endpoint_id: str, api_key: str, job_input: JsonObject) -> JsonObject:
-    route = f"runsync?wait={SYNC_WAIT_MILLISECONDS}"
-    response = _post(endpoint_id, api_key, route, job_input, SYNC_WAIT_MILLISECONDS // 1_000 + 30)
-    return _require_completed(response)
+def _invoke_sync(
+    endpoint_id: str,
+    api_key: str,
+    job_input: JsonObject,
+    timeout_seconds: int,
+) -> JsonObject:
+    deadline = time.monotonic() + timeout_seconds
+    wait_ms = _sync_wait_milliseconds(timeout_seconds)
+    request_timeout = math.ceil(wait_ms / MILLISECONDS_PER_SECOND) + SYNC_RESPONSE_BUFFER_SECONDS
+    response = _post(endpoint_id, api_key, f"runsync?wait={wait_ms}", job_input, request_timeout)
+    if response.get("status") not in ACTIVE_STATUSES:
+        return _require_completed(response)
+    job_id = _string_field(response, "id")
+    return _poll(endpoint_id, api_key, job_id, _remaining_seconds(deadline, job_id))
 
 
 def _post(
@@ -124,14 +139,29 @@ def _poll(endpoint_id: str, api_key: str, job_id: str, timeout: int) -> JsonObje
         )
         response.raise_for_status()
         result = _response_json(response)
-        if result.get("status") in TERMINAL_STATUSES:
+        status = result.get("status")
+        if status in TERMINAL_STATUSES:
             return _require_completed(result)
+        if status not in ACTIVE_STATUSES:
+            raise ClientError(f"job {job_id} returned unknown status {status}")
         time.sleep(DEFAULT_POLL_SECONDS)
     raise ClientError(f"job {job_id} did not finish within {timeout} seconds")
 
 
 def _headers(api_key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+
+def _sync_wait_milliseconds(timeout_seconds: int) -> int:
+    requested = timeout_seconds * MILLISECONDS_PER_SECOND
+    return min(max(requested, MIN_SYNC_WAIT_MILLISECONDS), MAX_SYNC_WAIT_MILLISECONDS)
+
+
+def _remaining_seconds(deadline: float, job_id: str) -> int:
+    remaining = math.ceil(deadline - time.monotonic())
+    if remaining <= 0:
+        raise ClientError(f"job {job_id} did not finish within the client timeout")
+    return remaining
 
 
 def _response_json(response: requests.Response) -> JsonObject:
