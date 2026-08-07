@@ -20,7 +20,7 @@ RUN python -c "import torch; assert torch.__version__.split('+')[0] == '2.13.0'"
     && python -m pip install --break-system-packages "uv==${UV_VERSION}" \
     && uv export --frozen --no-dev --no-emit-project --prune torch \
         --format requirements-txt --output-file /tmp/requirements.lock \
-    && uv pip install --system --break-system-packages --require-hashes \
+    && uv pip install --system --break-system-packages --no-deps --require-hashes \
         --requirements /tmp/requirements.lock \
     && python -m pip uninstall --yes --break-system-packages uv \
     && rm /tmp/requirements.lock \
