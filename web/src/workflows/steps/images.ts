@@ -1,7 +1,12 @@
 import { getRunpodEnv } from "@/lib/config/env";
 import { getProcessingDream } from "@/lib/database/dreams";
 import { hashJson } from "@/lib/database/hash";
-import { claimGenerationJob, recordGenerationSubmission, type JobClaim } from "@/lib/database/jobs";
+import {
+  claimGenerationJob,
+  recordGenerationSubmission,
+  transitionGenerationJob,
+  type JobClaim,
+} from "@/lib/database/jobs";
 import { ensureInitialVersion, getScene, getSelectedVersion } from "@/lib/database/scenes";
 import { createDreamImageUrl } from "@/lib/database/storage";
 import { buildAnchorInput } from "@/lib/runpod/anchor";
@@ -72,8 +77,13 @@ async function submitClaimedJob(
   }
 }
 
-function resumeImageClaim(claim: JobClaim): string {
+async function resumeImageClaim(claim: JobClaim): Promise<string> {
   if (claim.externalId || claim.status === "COMPLETED") return claim.jobId;
+  if (claim.status === "SUBMITTING") {
+    await transitionGenerationJob(claim.jobId, "SUBMITTING", "SUBMIT_UNKNOWN", {
+      p_error_code: "SUBMISSION_RESPONSE_LOST",
+    });
+  }
   throw new Error("Image submission cannot be safely repeated");
 }
 

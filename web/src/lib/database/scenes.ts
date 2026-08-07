@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { parseDatabaseRow, throwIfDatabaseError } from "@/lib/database/errors";
 import { sceneSchema, sceneVersionSchema, type Scene, type SceneVersion } from "@/lib/database/schemas";
 import { sha256 } from "@/lib/database/hash";
+import { assertVersionModel } from "@/lib/domain/version";
 
 export async function getScene(dreamId: string, ordinal: number): Promise<Scene> {
   const result = await createSupabaseAdminClient().from("scenes").select(SCENE_FIELDS)
@@ -16,13 +17,18 @@ export async function ensureInitialVersion(
   model: string,
 ): Promise<SceneVersion> {
   const existing = await findInitialVersion(scene.id);
-  if (existing) return existing;
+  if (existing) return requireModel(existing, model);
   const result = await createSupabaseAdminClient().from("scene_versions").insert({
     scene_id: scene.id, model, seed: seedFromId(scene.id), status: "PENDING",
   }).select(VERSION_FIELDS).single();
-  if (result.error?.code === "23505") return requireInitialVersion(scene.id);
+  if (result.error?.code === "23505") return requireModel(await requireInitialVersion(scene.id), model);
   throwIfDatabaseError(result.error);
   return parseDatabaseRow(sceneVersionSchema, result.data);
+}
+
+function requireModel(version: SceneVersion, model: string): SceneVersion {
+  assertVersionModel(version, model);
+  return version;
 }
 
 export async function getSceneVersion(versionId: string): Promise<SceneVersion> {
