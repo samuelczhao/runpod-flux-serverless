@@ -12,7 +12,8 @@ describe("dream state machine", () => {
     expect(() => assertTransition("DRAFT", "READY")).toThrow("Invalid dream transition");
   });
 
-  it("allows a failed stage to resume without restarting", () => {
-    expect(canTransition("FAILED", "GENERATING_SCENES")).toBe(true);
+  it("keeps failures terminal until the dream is deleted", () => {
+    expect(canTransition("FAILED", "GENERATING_SCENES")).toBe(false);
+    expect(canTransition("FAILED", "DELETING")).toBe(true);
   });
 });
