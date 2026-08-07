@@ -1,0 +1,10 @@
+{
+  "input": {
+    "prompt": "A small red panda astronaut reading a map on Mars, cinematic lighting",
+    "seed": 42,
+    "width": 1024,
+    "height": 1024,
+    "num_inference_steps": 50,
+    "guidance_scale": 3.5
+  }
+}
