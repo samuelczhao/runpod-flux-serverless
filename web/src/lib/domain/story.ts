@@ -37,3 +37,15 @@ export const dreamStorySchema = z.object({
 export type DreamStory = z.infer<typeof dreamStorySchema>;
 export type StoryScene = z.infer<typeof storySceneSchema>;
 export type StoryVersion = z.infer<typeof storyVersionSchema>;
+
+const ACTIVE_VERSION_STATUSES = new Set<StoryVersion["status"]>([
+  "PENDING", "SUBMITTING", "SUBMIT_UNKNOWN", "QUEUED", "RUNNING",
+]);
+
+export function shouldPollDream(story: DreamStory): boolean {
+  if (story.status === "FAILED") return false;
+  if (story.status !== "READY") return true;
+  return story.scenes.some((scene) => scene.versions.some(
+    (version) => ACTIVE_VERSION_STATUSES.has(version.status),
+  ));
+}

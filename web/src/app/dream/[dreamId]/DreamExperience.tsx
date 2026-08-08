@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from "react";
 import Link from "next/link";
-import { dreamStorySchema, type DreamStory } from "@/lib/domain/story";
+import { dreamStorySchema, shouldPollDream, type DreamStory } from "@/lib/domain/story";
+import { isRetryableHttpStatus } from "@/lib/domain/polling";
 import { SceneCard } from "@/app/dream/[dreamId]/SceneCard";
 
 const STAGES = [
@@ -11,14 +12,17 @@ const STAGES = [
   ["GENERATING_SCENES", "Following the dream"],
   ["READY", "Trace complete"],
 ] as const;
+const STORY_POLL_INTERVAL_MS = 3_000;
 
-export function DreamExperience({ dreamId }: { readonly dreamId: string }) {
-  const { story, error } = useDreamStory(dreamId);
+export function DreamExperience({ dreamId }: { readonly dreamId: string }): ReactElement {
+  const { story, error, refresh } = useDreamStory(dreamId);
   if (error) return <StateMessage title="The trace went quiet" copy={error} />;
   if (!story) return <StateMessage title="Opening the dream" copy="Restoring your private journal…" />;
   if (story.status === "FAILED") return <FailureState story={story} />;
   if (story.awaitingTranscriptReview) return <TranscriptReview story={story} />;
-  return story.status === "READY" ? <StoryView story={story} /> : <ProcessingView story={story} />;
+  return story.status === "READY"
+    ? <StoryView onStoryChanged={refresh} story={story} />
+    : <ProcessingView story={story} />;
 }
 
 function TranscriptReview({ story }: { readonly story: DreamStory }) {
@@ -59,23 +63,26 @@ function ProcessingView({ story }: { readonly story: DreamStory }) {
     <section className="processing-panel">
       <div className="orb" aria-hidden="true" />
       <p className="eyebrow">Dream in progress</p>
-      <h1>{stageLabel(story.status)}</h1>
+      <h1 aria-live="polite">{stageLabel(story.status)}</h1>
       <p>GPU workers can take a few minutes to wake up. This page will update itself.</p>
       <ol className="stage-list">{STAGES.map(([status, label]) => (
-        <li className={stageClass(story.status, status)} key={status}><span />{label}</li>
+        <li aria-current={story.status === status ? "step" : undefined}
+          className={stageClass(story.status, status)} key={status}><span />{label}</li>
       ))}</ol>
     </section>
   );
 }
 
-function StoryView({ story }: { readonly story: DreamStory }) {
+function StoryView({ story, onStoryChanged }: {
+  readonly story: DreamStory; readonly onStoryChanged: () => void;
+}) {
   return (
     <section className="story-view">
       <header className="story-header"><p className="eyebrow">Your dream trace</p><h1>{story.title}</h1><p>{story.summary}</p>
         <div className="mood-row">{story.mood.map((mood) => <span key={mood}>{mood}</span>)}</div>
       </header>
       <div className="scene-strip">{story.scenes.map((scene) =>
-        <SceneCard dreamId={story.id} key={scene.id} scene={scene} />)}</div>
+        <SceneCard dreamId={story.id} key={scene.id} onStoryChanged={onStoryChanged} scene={scene} />)}</div>
       <div className="story-actions"><Link className="button ghost" href="/capture">Trace another</Link>
         <Link className="button primary" href="/journal">Open journal</Link></div>
     </section>
@@ -92,25 +99,57 @@ function StateMessage({ title, copy }: { readonly title: string; readonly copy: 
     <Link className="button ghost" href="/capture">Return to capture</Link></section>;
 }
 
-function useDreamStory(dreamId: string): { story: DreamStory | null; error: string | null } {
+function useDreamStory(dreamId: string): {
+  story: DreamStory | null; error: string | null; refresh: () => void;
+} {
   const [story, setStory] = useState<DreamStory | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const requestRefresh = useCallback(() => setRefreshKey((value) => value + 1), []);
   useEffect(() => {
     let active = true;
-    const refresh = () => void fetchDream(dreamId).then((next) => { if (active) setStory(next); })
-      .catch(() => { if (active) setError("The private story could not be loaded."); });
-    refresh();
-    const timer = window.setInterval(refresh, 3_000);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [dreamId]);
-  return { story, error };
+    let timer: number | undefined;
+    const schedule = () => { timer = window.setTimeout(() => void poll(), STORY_POLL_INTERVAL_MS); };
+    const poll = async () => {
+      try {
+        const next = await fetchDream(dreamId);
+        if (!active) return;
+        setStory(next); setError(null);
+        if (shouldPollDream(next)) schedule();
+      } catch (cause: unknown) {
+        if (!active) return;
+        setError("The private story could not be loaded.");
+        if (shouldRetryStoryError(cause)) schedule();
+      }
+    };
+    void poll();
+    return () => { active = false; if (timer !== undefined) window.clearTimeout(timer); };
+  }, [dreamId, refreshKey]);
+  return { story, error, refresh: requestRefresh };
 }
 
 async function fetchDream(dreamId: string): Promise<DreamStory> {
   const response = await fetch(`/api/dreams/${dreamId}`, { cache: "no-store" });
-  if (!response.ok) throw new Error(`Dream request failed with HTTP ${response.status}`);
-  return dreamStorySchema.parse(await response.json() as unknown);
+  if (!response.ok) throw new DreamRequestError(response.status);
+  try {
+    return dreamStorySchema.parse(await response.json() as unknown);
+  } catch (cause: unknown) {
+    throw new DreamPayloadError("Dream response was invalid", { cause });
+  }
 }
+
+function shouldRetryStoryError(error: unknown): boolean {
+  if (error instanceof DreamPayloadError) return false;
+  return !(error instanceof DreamRequestError) || isRetryableHttpStatus(error.status);
+}
+
+class DreamRequestError extends Error {
+  public constructor(public readonly status: number) {
+    super(`Dream request failed with HTTP ${status}`);
+  }
+}
+
+class DreamPayloadError extends Error {}
 
 async function confirmTranscript(
   event: FormEvent<HTMLFormElement>,
@@ -122,12 +161,19 @@ async function confirmTranscript(
   event.preventDefault();
   setSubmitting(true);
   setError(null);
-  const response = await fetch(`/api/dreams/${dreamId}/transcript`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transcript }),
-  });
-  if (!response.ok) {
-    setError("The corrected transcript could not be confirmed.");
-    setSubmitting(false);
+  if (await requestTranscriptConfirmation(dreamId, transcript)) return;
+  setError("The corrected transcript could not be confirmed.");
+  setSubmitting(false);
+}
+
+async function requestTranscriptConfirmation(dreamId: string, transcript: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/dreams/${dreamId}/transcript`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transcript }),
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
 }
 

@@ -6,6 +6,11 @@ import { parseDatabaseRow, parseDatabaseRows, throwIfDatabaseError } from "@/lib
 import { processingDreamSchema, type ProcessingDream } from "@/lib/database/schemas";
 
 const workflowClaimSchema = z.object({ workflow_id: z.string(), claimed: z.boolean() }).strict();
+const optionalWorkflowClaimSchema = z.object({
+  workflow_id: z.string().nullable(), claimed: z.boolean(),
+}).strict();
+const audioCleanupCandidateSchema = z.object({ id: z.uuid(), user_id: z.uuid() }).strict();
+const cleanupLimitSchema = z.number().int().min(1).max(100);
 const ACTIVE_STATES: readonly DreamStatus[] = [
   "TRANSCRIBING", "PLANNING", "GENERATING_ANCHOR", "GENERATING_SCENES",
 ];
@@ -15,11 +20,28 @@ export interface WorkflowClaim {
   readonly claimed: boolean;
 }
 
+export interface AudioCleanupClaim {
+  readonly workflowId: string | null;
+  readonly claimed: boolean;
+}
+
+export interface AudioCleanupCandidate {
+  readonly dreamId: string;
+  readonly userId: string;
+}
+
 export async function getProcessingDream(dreamId: string): Promise<ProcessingDream> {
   const client = createSupabaseAdminClient();
   const result = await client.from("dreams").select(DREAM_FIELDS).eq("id", dreamId).single();
   throwIfDatabaseError(result.error);
   return parseDatabaseRow(processingDreamSchema, result.data);
+}
+
+export async function getProcessingDreamOrNull(dreamId: string): Promise<ProcessingDream | null> {
+  const client = createSupabaseAdminClient();
+  const result = await client.from("dreams").select(DREAM_FIELDS).eq("id", dreamId).maybeSingle();
+  throwIfDatabaseError(result.error);
+  return result.data === null ? null : parseDatabaseRow(processingDreamSchema, result.data);
 }
 
 export async function transitionDream(
@@ -88,6 +110,79 @@ export async function completeAudioUpload(
   throwIfDatabaseError(result.error);
 }
 
+export async function prepareAudioDream(
+  userId: string,
+  operationId: string,
+  mimeType: string,
+): Promise<string> {
+  const result = await createSupabaseAdminClient().rpc("prepare_audio_dream", {
+    p_user_id: userId, p_operation_key: operationId, p_mime_type: mimeType,
+  });
+  throwIfDatabaseError(result.error);
+  return z.uuid().parse(result.data);
+}
+
+export async function claimAudioCleanupWorkflow(
+  dreamId: string,
+  userId: string,
+  token: string,
+): Promise<AudioCleanupClaim | null> {
+  const result = await createSupabaseAdminClient().rpc("claim_audio_cleanup_workflow", {
+    p_dream_id: dreamId, p_user_id: userId, p_claim_token: token,
+  });
+  throwIfDatabaseError(result.error);
+  const row = parseDatabaseRows(optionalWorkflowClaimSchema, result.data)[0];
+  return row ? { workflowId: row.workflow_id, claimed: row.claimed } : null;
+}
+
+export async function recordAudioCleanupWorkflow(
+  dreamId: string,
+  token: string,
+  runId: string,
+): Promise<void> {
+  const result = await createSupabaseAdminClient().rpc("record_audio_cleanup_workflow", {
+    p_dream_id: dreamId, p_claim_token: token, p_run_id: runId,
+  });
+  throwIfDatabaseError(result.error);
+}
+
+export async function releaseAudioCleanupExecution(
+  dreamId: string,
+  token: string,
+  runId: string,
+): Promise<void> {
+  const result = await createSupabaseAdminClient().rpc("release_audio_cleanup_execution", {
+    p_dream_id: dreamId, p_claim_token: token, p_run_id: runId,
+  });
+  throwIfDatabaseError(result.error);
+}
+
+export async function completeAudioCleanupWorkflow(dreamId: string, runId: string): Promise<void> {
+  const result = await createSupabaseAdminClient().rpc("complete_audio_cleanup_workflow", {
+    p_dream_id: dreamId, p_run_id: runId,
+  });
+  throwIfDatabaseError(result.error);
+}
+
+export async function expireStaleAudioProcessing(
+  dreamId: string,
+  userId: string,
+): Promise<string | null> {
+  const result = await createSupabaseAdminClient().rpc("expire_stale_audio_processing", {
+    p_dream_id: dreamId, p_user_id: userId,
+  });
+  throwIfDatabaseError(result.error);
+  return z.string().nullable().parse(result.data);
+}
+
+export async function getExpiredAudioCleanupCandidates(
+  limit: number,
+): Promise<AudioCleanupCandidate[]> {
+  const result = await queryExpiredAudioCandidates(cleanupLimitSchema.parse(limit));
+  throwIfDatabaseError(result.error);
+  return parseDatabaseRows(audioCleanupCandidateSchema, result.data).map(toAudioCleanupCandidate);
+}
+
 export async function recordDreamWorkflow(dreamId: string, token: string, runId: string): Promise<void> {
   const result = await createSupabaseAdminClient().rpc("record_dream_workflow", {
     p_dream_id: dreamId, p_claim_token: token, p_run_id: runId,
@@ -121,4 +216,18 @@ function transitionArgs(dreamId: string, expected: DreamStatus, next: DreamStatu
   return { p_dream_id: dreamId, p_expected: expected, p_next: next };
 }
 
-const DREAM_FIELDS = "id,user_id,status,input_mode,transcript,audio_storage_path,retain_audio,visual_bible,plan_hash";
+function queryExpiredAudioCandidates(limit: number) {
+  return createSupabaseAdminClient().from("dreams").select("id,user_id")
+    .eq("input_mode", "audio").not("audio_upload_expires_at", "is", null)
+    .lte("audio_upload_expires_at", new Date().toISOString())
+    .order("audio_upload_expires_at", { ascending: true }).limit(limit);
+}
+
+function toAudioCleanupCandidate(
+  row: z.infer<typeof audioCleanupCandidateSchema>,
+): AudioCleanupCandidate {
+  return { dreamId: row.id, userId: row.user_id };
+}
+
+const DREAM_FIELDS = "id,user_id,status,input_mode,transcript,audio_storage_path,audio_mime_type,"
+  + "audio_upload_expires_at,retain_audio,visual_bible,plan_hash,error_code";

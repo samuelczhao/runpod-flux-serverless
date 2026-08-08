@@ -124,9 +124,13 @@ export async function recordBranchWorkflow(versionId: string, token: string, run
   throwIfDatabaseError(result.error);
 }
 
-export async function releaseBranchWorkflow(versionId: string, token: string): Promise<void> {
-  const result = await createSupabaseAdminClient().rpc("release_branch_workflow_claim", {
-    p_version_id: versionId, p_claim_token: token,
+export async function releaseBranchWorkflowExecution(
+  versionId: string,
+  token: string,
+  runId: string,
+): Promise<void> {
+  const result = await createSupabaseAdminClient().rpc("release_branch_workflow_execution", {
+    p_version_id: versionId, p_claim_token: token, p_run_id: runId,
   });
   throwIfDatabaseError(result.error);
 }
