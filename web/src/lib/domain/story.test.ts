@@ -85,4 +85,20 @@ describe("dream story polling", () => {
     expect(mergeStoryPollResult(current, next, false).scenes[0]?.versions[0]?.imageUrl)
       .toBe("https://new.example/a.png");
   });
+
+  it("replaces aged URLs when an active story becomes READY", () => {
+    const current = story("GENERATING_SCENES", [{
+      ...version("COMPLETED"), imageUrl: "https://old.example/a.png",
+    }]);
+    const next = story("READY", [{ ...version("COMPLETED"), imageUrl: "https://new.example/a.png" }]);
+    expect(mergeStoryPollResult(current, next, true).scenes[0]?.versions[0]?.imageUrl)
+      .toBe("https://new.example/a.png");
+  });
+
+  it("replaces aged URLs when an active branch becomes terminal", () => {
+    const current = story("READY", [{ ...version("RUNNING"), imageUrl: "https://old.example/a.png" }]);
+    const next = story("READY", [{ ...version("COMPLETED"), imageUrl: "https://new.example/a.png" }]);
+    expect(mergeStoryPollResult(current, next, true).scenes[0]?.versions[0]?.imageUrl)
+      .toBe("https://new.example/a.png");
+  });
 });

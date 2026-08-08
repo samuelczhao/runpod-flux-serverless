@@ -90,5 +90,13 @@ export function mergeStoryPollResult(
   next: DreamStory,
   preserveImageUrls: boolean,
 ): DreamStory {
-  return preserveImageUrls ? preserveStoryImageUrls(current, next) : next;
+  if (!preserveImageUrls || crossedImageRenewalBoundary(current, next)) return next;
+  return preserveStoryImageUrls(current, next);
+}
+
+function crossedImageRenewalBoundary(current: DreamStory | null, next: DreamStory): boolean {
+  if (!current || current.id !== next.id) return false;
+  if (current.status !== "READY" && next.status === "READY") return true;
+  return current.status === "READY" && next.status === "READY"
+    && hasActiveVersion(current) && !hasActiveVersion(next);
 }
