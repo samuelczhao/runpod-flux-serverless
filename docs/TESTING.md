@@ -110,6 +110,25 @@ The two full-quality seed-42 PNGs were also byte-identical with SHA-256
 The invalid-width job reached `FAILED` with
 `invalid_input:width: must be divisible by 16` and no traceback.
 
+## Live DreamTrace acceptance
+
+Measured on August 7, 2026 with scale-to-zero endpoints and a synthetic, clearly
+labeled 13-second voice fixture:
+
+| Stage | Queue delay | Runpod execution | Result |
+| --- | ---: | ---: | --- |
+| Whisper transcription | 0.795 s | 2.266 s | Exact transcript, source audio deleted |
+| Qwen plan | 0.143 s | 2.575 s | Strict three-scene plan |
+| Custom FLUX anchor | 0.952 s | 11.678 s | Valid 1024×1024 PNG |
+| Kontext scene 2 | 3.661 s | 13.603 s | Valid 1024×1024 PNG, $0.025 |
+| Kontext scene 3 | 0.150 s | 16.703 s | Valid 1024×1024 PNG, $0.025 |
+
+The workflow paused after transcription for explicit user confirmation, reached
+`READY` after confirmation, retained exactly one selected image per scene, and preserved
+the glass whale, compass, violet desert, and cloud staircase across all three images.
+Two separate text dreams also reached `READY`; a replayed branch request reused one
+version, and the selected red-fox edit persisted without regenerating the other scenes.
+
 ## Queue check
 
 With Max workers at 1, submit two async jobs back-to-back. Confirm one is processed while

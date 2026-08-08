@@ -155,7 +155,7 @@ pnpm lint
 pnpm build
 ```
 
-The web suite currently contains 54 GPU-free unit tests plus an opt-in linked-database
+The web suite currently contains 59 GPU-free unit tests plus an opt-in linked-database
 recovery test. The database fixture verifies ambiguous branch recovery, duplicate
 workflow claims, NULL identity guards, completion, and cross-user RLS isolation, then
 deletes its anonymous users and one-pixel artifacts.

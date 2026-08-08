@@ -30,7 +30,7 @@
    contract, cached gated weights, GitHub build, and the direct red-panda output.
 8. **Reliability — 75 seconds.** Explain persisted endpoint/request identity, workflow
    claims, ambiguous-submission recovery, cancellation, RLS, and scale-to-zero.
-9. **Evidence — 45 seconds.** Show typecheck, 54 web tests, 53 worker tests, production
+9. **Evidence — 45 seconds.** Show typecheck, 59 web tests, 53 worker tests, production
    build, schema lint, live database recovery, and measured Runpod jobs.
 10. **Return to outcome — 30 seconds.** Refresh the live dream if ready; otherwise keep
     the fallback story visible and show the queued/running request honestly.

@@ -25,3 +25,6 @@
   They share `.next` and can invalidate the local workflow event store mid-run.
 - Bound durable provider polling by event count as well as wall-clock intent. Frequent
   sleeps create replay history, so long cold starts need a backed-off poll schedule.
+- Audio smoke tests must confirm the reviewed transcript through
+  `/api/dreams/{dreamId}/transcript`; transcription intentionally stops in `PLANNING`
+  so a user can correct Whisper output before image-generation spend begins.
