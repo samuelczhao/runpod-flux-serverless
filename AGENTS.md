@@ -23,3 +23,5 @@
   session may rely on Runpod and GitHub CI builds instead of a local Docker daemon.
 - Do not run `next build` or `next typegen` in a checkout serving local workflows.
   They share `.next` and can invalidate the local workflow event store mid-run.
+- Bound durable provider polling by event count as well as wall-clock intent. Frequent
+  sleeps create replay history, so long cold starts need a backed-off poll schedule.

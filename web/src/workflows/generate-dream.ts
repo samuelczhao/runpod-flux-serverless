@@ -4,9 +4,7 @@ import { submitAnchorStep, submitSceneStep } from "@/workflows/steps/images";
 import { inspectPlanStep, persistPlanStep, submitPlanStep } from "@/workflows/steps/planning";
 import { inspectImageJobStep, persistImageStep } from "@/workflows/steps/status";
 import { cancelGenerationJobStep } from "@/workflows/steps/cancel";
-
-const POLL_INTERVAL = "5s";
-const MAX_POLLS = 120;
+import { PROVIDER_POLL_ATTEMPTS, providerPollDelay } from "@/workflows/polling";
 
 export async function generateDreamWorkflow(dreamId: string): Promise<{ dreamId: string; status: "READY" }> {
   "use workflow";
@@ -42,22 +40,22 @@ async function generateScene(dreamId: string, ordinal: 2 | 3): Promise<void> {
 }
 
 async function waitForImage(jobId: string): Promise<void> {
-  for (let attempt = 0; attempt < MAX_POLLS; attempt += 1) {
+  for (let attempt = 0; attempt < PROVIDER_POLL_ATTEMPTS; attempt += 1) {
     const state = await inspectImageJobStep(jobId);
     if (state === "completed") return;
     if (state === "failed") throw new Error("Runpod image generation failed");
-    if (attempt < MAX_POLLS - 1) await sleep(POLL_INTERVAL);
+    if (attempt < PROVIDER_POLL_ATTEMPTS - 1) await sleep(providerPollDelay(attempt));
   }
   if (await cancelGenerationJobStep(jobId) === "completed") return;
   throw new Error("Runpod image generation timed out");
 }
 
 async function waitForPlan(jobId: string): Promise<void> {
-  for (let attempt = 0; attempt < MAX_POLLS; attempt += 1) {
+  for (let attempt = 0; attempt < PROVIDER_POLL_ATTEMPTS; attempt += 1) {
     const state = await inspectPlanStep(jobId);
     if (state === "completed") return;
     if (state === "failed") throw new Error("Runpod planning failed");
-    if (attempt < MAX_POLLS - 1) await sleep(POLL_INTERVAL);
+    if (attempt < PROVIDER_POLL_ATTEMPTS - 1) await sleep(providerPollDelay(attempt));
   }
   if (await cancelGenerationJobStep(jobId) === "completed") return;
   throw new Error("Runpod planning timed out");
