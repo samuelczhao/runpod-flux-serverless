@@ -12,7 +12,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
 });
-const createSchema = z.object({ dreamId: z.uuid(), runId: z.string().min(1) }).strict();
+const createSchema = z.object({ dreamId: z.uuid(), runId: z.string().min(1).nullable() }).strict();
 const versionSchema = z.object({
   id: z.uuid(), status: z.string(), isSelected: z.boolean(), imageUrl: z.url().nullable(),
 }).passthrough();
@@ -44,10 +44,13 @@ async function main(): Promise<void> {
 }
 
 async function createDream(context: LiveAppContext, transcript: string) {
-  const payload = await appRequest(context, "/api/dreams", {
-    method: "POST", body: JSON.stringify({ transcript }),
-  });
-  const created = createSchema.parse(payload);
+  const body = JSON.stringify({ transcript, operationId: crypto.randomUUID() });
+  const created = createSchema.parse(await appRequest(context, "/api/dreams", { method: "POST", body }));
+  const replay = createSchema.parse(await appRequest(context, "/api/dreams", { method: "POST", body }));
+  if (created.dreamId !== replay.dreamId) throw new Error("Text replay created a duplicate dream");
+  if (created.runId && replay.runId && created.runId !== replay.runId) {
+    throw new Error("Text replay changed the workflow run");
+  }
   console.log(`dream_started id=${created.dreamId} run=${created.runId}`);
   return created;
 }
