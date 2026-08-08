@@ -62,8 +62,9 @@ configuration, not the web application.
 The Qwen planner scales from zero and remains capped at one worker. Its 600-second idle
 timeout keeps the model warm across the first dream, branch, and second dream without
 paying for an always-on worker. The allowed GPU pool includes compatible 16-24 GB
-Ampere and Ada cards, and does not impose an unnecessary CUDA-version restriction.
-This reduces host-capacity throttling while preserving the one-worker cost ceiling.
+Ampere and Ada cards. CUDA 13.0 remains required because the pinned vLLM worker image
+declares CUDA 13.0.2 and a CUDA 13 minimum. This broadens capacity as far as the image
+allows while preserving the one-worker cost ceiling.
 
 ## Local run
 
