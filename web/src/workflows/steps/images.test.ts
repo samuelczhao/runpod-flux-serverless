@@ -113,7 +113,10 @@ it("keeps identity, style, and visual continuity when a scene prompt is long", a
   await submitAnchorStep("dream-1");
 
   const prompt = String(mocks.submit.mock.calls[0][1].prompt);
-  expect(prompt).toContain("Preserve their recognizable identity");
+  expect(prompt).toContain("only as the identity and appearance guide");
+  expect(prompt).toContain("full-body or three-quarter figure");
+  expect(prompt).toContain("action and setting occupy most of the image");
+  expect(prompt).toContain("same illustrated medium");
   expect(prompt).toContain("Luminous cinematic painted realism");
   expect(prompt).toContain("scarlet compass");
   expect(prompt).toContain("moonlit bridge");

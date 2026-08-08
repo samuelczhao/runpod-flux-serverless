@@ -154,7 +154,7 @@ function identityVisualPrompt(
   prompt: string,
 ): string {
   return boundedPrompt([
-    "The person in the reference image is the dreamer. Preserve their recognizable identity, facial structure, skin tone, eyes, nose, mouth, hairstyle, age, and distinctive features. Keep natural facial proportions and show only one dreamer unless the story explicitly requires more people.",
+    "Use the person in the reference image only as the identity and appearance guide for the dreamer. Preserve their recognizable facial structure, skin tone, eyes, nose, mouth, hairstyle, age, distinctive features, and clothing cues. Create a completely new environmental composition with a new pose, framing, and background. Show the dreamer as a full-body or three-quarter figure actively participating in the described event. Favor a wide or medium-wide storybook view where the action and setting occupy most of the image. Render the dreamer and the world together in the same illustrated medium, with natural facial proportions and exactly one dreamer unless the story explicitly requires more people.",
     VISUAL_STYLE_PROMPTS[style],
     visualBible,
     prompt,

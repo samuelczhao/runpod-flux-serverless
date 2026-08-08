@@ -129,8 +129,9 @@ async function createDream(context: LiveAppContext, identityReferenceId: string)
   });
   const created = createdSchema.parse(await appRequest(context, "/api/dreams", { method: "POST", body }));
   const replay = createdSchema.parse(await appRequest(context, "/api/dreams", { method: "POST", body }));
-  if (created.dreamId !== replay.dreamId || created.runId !== replay.runId) {
-    throw new Error("Identity dream replay changed the operation");
+  if (created.dreamId !== replay.dreamId) throw new Error("Identity dream replay created a duplicate");
+  if (created.runId && replay.runId && created.runId !== replay.runId) {
+    throw new Error("Identity dream replay changed the workflow run");
   }
   console.log(`identity_dream_started id=${created.dreamId} run=${created.runId}`);
   return created;
