@@ -332,6 +332,11 @@ export type Database = {
         p_expected_version_id: string;
         p_next_version_id: string;
       }>;
+      apply_dream_plan: VoidFunction<{
+        p_dream_id: string;
+        p_plan: Json;
+        p_plan_hash: string;
+      }>;
       finalize_dream: VoidFunction<{ p_dream_id: string }>;
       claim_generation_job: {
         Args: {
