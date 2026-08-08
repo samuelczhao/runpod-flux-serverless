@@ -8,8 +8,8 @@ connect across a private journal.
 
 Status: the custom FLUX worker, Qwen planner, Kontext generation, Supabase schema, and
 full DreamTrace workflow have been validated live. The web app passes production build
-locally; public web hosting remains intentionally unclaimed until the Vercel project is
-authenticated and deployed.
+locally. The Vercel project and Production environment are configured; public hosting
+awaits the reviewed release commit.
 
 ## Product architecture
 
@@ -155,10 +155,11 @@ pnpm lint
 pnpm build
 ```
 
-The web suite currently contains 59 GPU-free unit tests plus an opt-in linked-database
-recovery test. The database fixture verifies ambiguous branch recovery, duplicate
-workflow claims, NULL identity guards, completion, and cross-user RLS isolation, then
-deletes its anonymous users and one-pixel artifacts.
+The web suite currently contains 125 GPU-free unit tests plus an opt-in linked-database
+recovery test. The database fixture verifies idempotent audio preparation, atomic branch
+recovery, duplicate workflow claims, audio format binding, NULL identity guards,
+completion, and cross-user RLS isolation, then deletes its anonymous users and
+one-pixel artifacts.
 
 ## Deploy and invoke
 
@@ -190,6 +191,7 @@ before writing the file.
 - [Testing and acceptance plan](docs/TESTING.md)
 - [Live presentation runbook](docs/PRESENTATION.md)
 - [DreamTrace product runbook](docs/DREAMTRACE.md)
+- [DreamTrace web deployment](docs/WEB_DEPLOYMENT.md)
 
 ## Repository map
 

@@ -22,7 +22,7 @@ call.
 | Qwen3-4B-AWQ endpoint | Strict JSON story plan, moods, motifs, three prompts |
 | Custom FLUX.1-dev endpoint | Anchor image from the accepted gated model |
 | FLUX.1 Kontext endpoint | Coherent scenes and instruction-based branches |
-| Whisper endpoint | Optional voice transcription |
+| Whisper endpoint | Voice transcription for the default capture mode |
 | Supabase | Anonymous auth, RLS data model, private audio/image storage |
 
 ## Privacy and correctness boundaries
@@ -35,6 +35,20 @@ call.
 - Provider request hashes use stable storage identities, not expiring signed URL bytes.
 - Branch workflow claims prevent replayed API requests from starting duplicate durable
   workflows.
+- Catchable failures atomically release the matching workflow claim or run while the
+  branch is pending. Request-time reconciliation also checks Vercel Workflow status and
+  reclaims only missing, failed, or cancelled runs; active work remains untouched.
+- Audio preparation binds a per-recording idempotency key to one MIME type and private
+  path. Upload tokens cannot overwrite an existing object, and ambiguous retries verify
+  idempotent completion before requesting a fresh token.
+- A recovery-aware durable workflow removes abandoned drafts and source audio after the
+  signed upload token expires. This avoids deleting an object while an older upload token
+  could still recreate it.
+- An authenticated daily maintenance sweep reconciles due cleanup work whose durable run
+  is missing, failed, cancelled, or completed without recording its final database step.
+  The per-upload workflow remains the normal two-hour cleanup path; the sweep is a safety net.
+- Uploads or transcriptions that remain active six hours beyond token expiry are marked
+  failed, their exact durable run is cancelled when possible, and cleanup can proceed.
 - An ambiguous paid submission is never blindly repeated. If its external ID is later
   recovered, the job and scene version recover transactionally.
 - At the local poll deadline, DreamTrace asks Runpod to cancel the exact queued/running
@@ -49,10 +63,11 @@ Copy `.env.example` to the ignored root `.env` and set:
 - `RUNPOD_ENDPOINT_ID` for the custom FLUX worker
 - `RUNPOD_PLANNER_ENDPOINT_ID` for Qwen3-4B-AWQ
 - `RUNPOD_KONTEXT_ENDPOINT_ID`
-- `RUNPOD_WHISPER_ENDPOINT_ID` if voice capture is enabled
+- `RUNPOD_WHISPER_ENDPOINT_ID` for the default voice capture mode
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SECRET_KEY`
+- `CRON_SECRET` for the authenticated Vercel maintenance route
 
 Never commit these values. The Hugging Face token belongs in Runpod's gated cached-model
 configuration, not the web application.
@@ -103,9 +118,9 @@ pnpm --dir web lint
 pnpm --dir web build
 ```
 
-The linked-database test creates disposable anonymous users and one-pixel artifacts,
-exercises the full branch recovery state machine, verifies workflow exclusivity and
-foreign-user isolation, and removes its fixtures:
+The linked-database test creates disposable anonymous users and tiny artifacts, exercises
+atomic claim/run recovery, verifies workflow exclusivity, stale-audio expiry, one-branch
+enforcement, and foreign-user isolation, then removes its fixtures:
 
 ```bash
 DREAMTRACE_DB_INTEGRATION=1 pnpm --dir web test:db:branch-recovery
@@ -147,9 +162,10 @@ afterward is covered by local contract tests and the database constraint.
 Exact job IDs and measured timings belong in redacted presentation evidence, not source
 code, because endpoint history and anonymous journal IDs are operational data.
 
-## Current deployment boundary
+## Web deployment
 
 The Runpod endpoints and Supabase schema are live. The Next.js app is production-build
-clean locally. A public web URL should only be added to the README after Vercel login,
-environment provisioning, deployment, and a fresh browser-to-GPU acceptance test all
-succeed.
+clean locally. Follow [WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md) for the Vercel root,
+environment boundaries, release sequence, acceptance test, and rollback procedure. A
+public URL should only be added to the README after a fresh browser-to-GPU acceptance
+test succeeds.
