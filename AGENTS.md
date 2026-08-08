@@ -21,3 +21,5 @@
   orchestration is too typo-prone and can lose an anonymous session after creation.
 - Check that the Docker CLI is available before local image verification. This Mac
   session may rely on Runpod and GitHub CI builds instead of a local Docker daemon.
+- Do not run `next build` or `next typegen` in a checkout serving local workflows.
+  They share `.next` and can invalidate the local workflow event store mid-run.
