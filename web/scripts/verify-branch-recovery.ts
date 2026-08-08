@@ -59,6 +59,7 @@ async function verifyFixture(
   await assertWorkflowClaiming(admin, fixture);
   await assertForeignVersionHidden(env, admin, fixture.versionId);
   await verifyRecovery(admin, fixture);
+  await assertTerminalBranchCanRetry(env, admin, userId, storagePaths);
   console.log("branch_recovery status=COMPLETED");
 }
 
@@ -141,6 +142,30 @@ async function assertSingleBranchInvariant(env: Env, admin: AdminClient, fixture
     fixture.userId, fixture.dreamId, parentId,
   ));
   if (!duplicate.error) throw new Error("A scene accepted more than one generated branch");
+}
+
+async function assertTerminalBranchCanRetry(
+  env: Env,
+  admin: AdminClient,
+  userId: string,
+  storagePaths: string[],
+): Promise<void> {
+  const fixture = await createFixture(admin, userId, storagePaths);
+  const failed = await admin.rpc("update_generation_job", {
+    p_job_id: fixture.jobId, p_expected: "SUBMITTING", p_next: "FAILED",
+    p_error_code: "integration_terminal_failure",
+  });
+  assertNoError(failed.error);
+  await assertVersionState(admin, fixture.versionId, "FAILED");
+  const parentId = await parentIdForFixture(env, fixture.versionId);
+  const retry = await admin.rpc("create_scene_branch", branchRpcArgs(
+    fixture.userId, fixture.dreamId, parentId,
+  ));
+  assertNoError(retry.error);
+  const duplicate = await admin.rpc("create_scene_branch", branchRpcArgs(
+    fixture.userId, fixture.dreamId, parentId,
+  ));
+  if (!duplicate.error) throw new Error("A scene accepted two active branch retries");
 }
 
 async function cleanupAfterFailure(

@@ -47,12 +47,12 @@ describe("dream story polling", () => {
     expect(shouldPollDream(story("FAILED"))).toBe(false);
   });
 
-  it.each(["PENDING", "SUBMITTING", "SUBMIT_UNKNOWN", "QUEUED", "RUNNING"] as const)(
+  it.each(["PENDING", "SUBMITTING", "QUEUED", "RUNNING"] as const)(
     "keeps a READY dream fresh while a branch is %s",
     (status) => expect(shouldPollDream(story("READY", [version(status)]))).toBe(true),
   );
 
-  it.each(["COMPLETED", "FAILED", "CANCELLED"] as const)(
+  it.each(["COMPLETED", "FAILED", "CANCELLED", "SUBMIT_UNKNOWN"] as const)(
     "stops a READY dream after its branch is %s",
     (status) => expect(shouldPollDream(story("READY", [version(status)]))).toBe(false),
   );
