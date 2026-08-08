@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import { StorageApiError } from "@supabase/supabase-js";
 import { cleanupIdentityCandidates, prepareIdentityUpload } from "@/lib/database/identity";
 
 const mocks = vi.hoisted(() => ({
@@ -31,7 +32,10 @@ beforeEach(() => {
 
 it("returns only the public signed upload contract for a new photo", async () => {
   mocks.rpc.mockResolvedValue(prepared("PENDING"));
-  mocks.exists.mockResolvedValue({ data: false, error: null });
+  mocks.exists.mockResolvedValue({
+    data: false,
+    error: new StorageApiError("HTTP 400 error", 400, "400"),
+  });
   mocks.createSignedUploadUrl.mockResolvedValue({
     data: {
       path: SOURCE_PATH,
@@ -47,6 +51,18 @@ it("returns only the public signed upload contract for a new photo", async () =>
     path: SOURCE_PATH,
     token: "upload-token",
   });
+});
+
+it("does not hide a real storage failure while checking for a replay", async () => {
+  mocks.rpc.mockResolvedValue(prepared("PENDING"));
+  mocks.exists.mockResolvedValue({
+    data: false,
+    error: new StorageApiError("Service unavailable", 503, "503"),
+  });
+
+  await expect(prepareIdentityUpload(USER_ID, OPERATION_ID, "image/jpeg", true))
+    .rejects.toThrow("Service unavailable");
+  expect(mocks.createSignedUploadUrl).not.toHaveBeenCalled();
 });
 
 it("resumes from an already stored or completed photo without overwriting", async () => {
