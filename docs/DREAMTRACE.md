@@ -43,6 +43,8 @@ GPU platform behind one API call.
   delayed tombstone sweep cover source, normalized, and late-race objects.
 - Branch workflow claims prevent replayed API requests from starting duplicate durable
   workflows.
+- Failed or cancelled scene edits are terminal and can be retried with a new operation;
+  an unknown submission outcome stops polling and is never blindly resubmitted.
 - Catchable failures atomically release the matching workflow claim or run while the
   branch is pending. Request-time reconciliation also checks Vercel Workflow status and
   reclaims only missing, failed, or cancelled runs; active work remains untouched.
@@ -59,6 +61,8 @@ GPU platform behind one API call.
   failed, their exact durable run is cancelled when possible, and cleanup can proceed.
 - An ambiguous paid submission is never blindly repeated. If its external ID is later
   recovered, the job and scene version recover transactionally.
+- Provider result downloads accept only approved HTTPS Runpod image hosts and revalidate
+  every redirect before bounded PNG ingestion.
 - At the local poll deadline, DreamTrace asks Runpod to cancel the exact queued/running
   job. A confirmed completion is still persisted; an uncertain cancellation remains a
   manual-reconciliation case rather than being mislabeled safe to retry.
@@ -167,23 +171,27 @@ audio remains private until its durable cleanup deadline.
 
 ## Live evidence
 
-The following evidence predates adaptive scene counts and records the earlier fixed
-three-scene release. New acceptance should additionally cover the one- and six-scene
-boundaries plus one identity-aware story made from a non-sensitive fixture portrait.
+The promoted adaptive release has produced:
 
-The hardened end-to-end path has produced:
+- one selected image for a continuous single-setting, single-action dream;
+- six contiguous selected images for a dream with six explicit setting/action changes;
+- two ordinary three-scene dreams sharing a silver train, brass key, red fox, and
+  moonlit lake;
+- a completed and selected scene-two branch, including idempotent creation and selection
+  replay;
+- a three-scene watercolor story with one consistent synthetic Dream Self;
+- a verified `DELETED` identity tombstone with private paths and content hash cleared;
+- a Runpod Whisper transcript followed by a complete voice story and accepted upload plus
+  transcript replays without duplicate workflows;
+- provider-reported Kontext timings and cost where available.
 
-- two three-scene dreams sharing a silver train, brass key, red fox, and moonlit lake;
-- a completed scene-two branch that makes the fox visually unmistakable;
-- successful branch selection and preserved private PNGs;
-- a 54-word Runpod Whisper transcript followed by a complete three-scene voice story;
-- accepted upload and transcript replays without duplicate workflows;
-- warm planner execution in 1.8 seconds after the initial model cold start;
-- provider-reported Kontext cost where available.
+The first single-moment acceptance run produced three repetitive images. Tightening the
+planner to add a scene only for a meaningful transition fixed that measured failure; the
+same staged artifact then passed both one- and six-scene boundaries before promotion.
 
-A post-idle planner job remained queued while a 4090 worker was throttled and reached the
-local cancellation deadline. Prioritizing an active A4000 worker removed that capacity
-bottleneck; the subsequent text and voice workflows completed without queue buildup.
+A post-idle planner job previously remained queued while a 4090 worker was throttled and
+reached the local cancellation deadline. Prioritizing an active A4000 worker removed that
+capacity bottleneck; subsequent text, identity, and voice workflows completed normally.
 
 Exact job IDs and measured timings belong in redacted presentation evidence, not source
 code, because endpoint history and anonymous journal IDs are operational data.

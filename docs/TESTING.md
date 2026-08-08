@@ -112,10 +112,24 @@ The invalid-width job reached `FAILED` with
 
 ## Live DreamTrace acceptance
 
-Current acceptance requires a planner-selected count from one through six, contiguous
-ordinals starting at one, and exactly one selected completed image per scene. Exercise
-both boundary counts before release. The measurements below are historical evidence
-from the earlier fixed three-scene contract.
+Acceptance requires a planner-selected count from one through six, contiguous ordinals
+starting at one, and exactly one selected completed image per scene. The promoted release
+passed both boundaries: a single continuous moment produced one scene, while a six-beat
+dream with explicit setting/action transitions produced six scenes. Both reached `READY`.
+
+The first single-beat Production probe exposed an over-segmentation failure: Qwen split
+the subject, action, and lighting into three repetitive images. The planner rubric now
+requires a meaningful change in setting, time, central action, or story beat before it
+adds a scene. The exact corrected artifact passed one- and six-scene acceptance before
+promotion.
+
+An ordinary no-photo flow also created two `READY` stories and a selected scene edit.
+It replayed text creation, branch creation, and branch selection without duplicates.
+The first scene used the required custom FLUX endpoint; later scenes and the edit used
+Kontext.
+
+The table below retains an earlier voice run because it provides measured Whisper and
+custom-worker timings:
 
 Measured on August 7, 2026 with scale-to-zero endpoints and a synthetic, clearly
 labeled 13-second voice fixture:
@@ -134,10 +148,10 @@ the glass whale, compass, violet desert, and cloud staircase across all three im
 Two separate text dreams also reached `READY`; a replayed branch request reused one
 version, and the selected red-fox edit persisted without regenerating the other scenes.
 
-After the planner mood contract was tightened, a planner-only scale-from-zero check
+After the planner mood contract was tightened, a planner-only scale-from-zero check once
 remained in worker initialization for ten minutes and was cancelled without inference.
-The live contract result is therefore intentionally unclaimed; the GPU-free web suite
-validates the planner boundary, and the remote database constraint rejects malformed mood arrays.
+Keeping one right-sized planner worker active during acceptance removed that capacity
+bottleneck; current adaptive runs complete normally.
 
 ## Dream Self acceptance
 
@@ -145,11 +159,11 @@ The GPU-free web suite covers normalization limits and metadata removal, version
 consent, signed-upload response projection, stored/ready replay, source cleanup replay,
 ambiguous database completion, deterministic tombstone cleanup, provider-URL signing
 before job claim, stable request hashing, style/identity audio retry behavior, and prompt
-budget preservation. Current local result: 42 files and 196 tests passed, followed by
+budget preservation. Current local result: 42 files and 208 tests passed, followed by
 zero-warning ESLint and a successful Next.js Production build.
 
-Before claiming the feature in Production, use a synthetic or explicitly consented
-portrait and verify:
+Together, the GPU-free suite, linked-project fixture, and live synthetic-portrait run
+verified:
 
 1. replacement does not remove the current photo before the new one is ready;
 2. the original upload disappears while the normalized object remains private;
@@ -159,7 +173,12 @@ portrait and verify:
 6. manual removal blocks during active generation and succeeds afterward;
 7. no signed identity URL, token, user ID, or prompt appears in captured logs.
 
-Identity quality is a visual acceptance criterion, not a unit-test claim. Record the
+The reference was deleted after generation. Its database tombstone was inactive and all
+paths, dimensions, size, content hash, and retention timestamp were cleared. Visual
+inspection found one consistent dreamer without duplicates across all three scenes;
+pose-level action fidelity remains a known model-quality limitation.
+
+Identity quality is a visual acceptance criterion, not a unit-test claim. Keep recording
 fixture provenance, prompt, style, selected images, Runpod timings, and exact release
 commit without committing the face image or signed URLs.
 

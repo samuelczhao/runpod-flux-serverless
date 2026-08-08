@@ -9,10 +9,10 @@ connect across a private journal.
 Production: [dreamtrace.vercel.app](https://dreamtrace.vercel.app)
 
 Status: the custom FLUX worker, Qwen planner, Kontext generation, Whisper transcription,
-Supabase schema, and full DreamTrace workflow are deployed. The next release adds an
-optional private Dream Self photo, three illustration styles, and adaptive one-to-six
-scene stories; [docs/EVIDENCE.md](docs/EVIDENCE.md) separates historical Production
-evidence from the acceptance still required for that release.
+Supabase schema, and full DreamTrace workflow are deployed. Production includes the
+optional private Dream Self photo, three illustration styles, adaptive one-to-six scene
+stories, and recoverable scene editing. [docs/EVIDENCE.md](docs/EVIDENCE.md) records the
+current release identity and live acceptance evidence.
 
 ## Product architecture
 
@@ -166,11 +166,11 @@ pnpm lint
 pnpm build
 ```
 
-The web suite currently contains 196 GPU-free unit tests plus an opt-in linked-database
+The web suite currently contains 208 GPU-free unit tests plus an opt-in linked-database
 recovery test. The database fixture verifies idempotent audio preparation, atomic branch
-and dream recovery, duplicate text and workflow claims, audio format binding, NULL identity guards,
-completion, and cross-user RLS isolation, then deletes its anonymous users and
-one-pixel artifacts.
+and dream recovery, terminal branch retry, duplicate text and workflow claims, audio
+format binding, Dream Self lifecycle, NULL identity guards, completion, and cross-user
+RLS isolation, then deletes its anonymous users and one-pixel artifacts.
 
 ## Deploy and invoke
 

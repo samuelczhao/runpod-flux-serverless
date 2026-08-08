@@ -59,6 +59,11 @@ adapter.
 - An ambiguous database completion is reread and reconciled before any normalized object
   is removed; a lost success response cannot corrupt a committed reference.
 - Replays compare identity ID, content hash, style, prompt, model, endpoint, and seed.
+- Provider images must come from an approved HTTPS Runpod image host. Redirect targets
+  are revalidated, credentials and custom ports are rejected, and bytes plus PNG signature
+  are bounded before private storage.
+- If private storage succeeds but database completion definitively fails, the exact
+  orphan is removed. Ambiguous completion preserves it for reconciliation.
 - Ambiguous Runpod submission still stops for reconciliation instead of risking duplicate
   paid work.
 - Expired, abandoned, replaced, and deleted references are processed by the authenticated
@@ -70,4 +75,5 @@ The server validates format, dimensions, and decoded size but does not run face 
 The UI therefore asks for one clear photo and the generated result remains the final
 quality check. A production release would evaluate single-face detection for bias and
 false rejection before making it a gate. Anonymous journals are device-bound until an
-account-linking flow is added.
+account-linking flow is added. Removing Dream Self does not delete completed story images;
+finished-journal deletion and configurable retention remain future privacy work.
