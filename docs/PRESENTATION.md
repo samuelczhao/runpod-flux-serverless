@@ -51,7 +51,9 @@ uv run python scripts/invoke.py --output artifacts/live-demo.png
 ## Failure recovery
 
 - **Cold worker:** narrate the initialization logs and use the async request.
-- **GPU unavailable:** show the queued state and the three enabled H100 variants.
+- **FLUX GPU unavailable:** show the queued state and the three enabled H100 variants.
+- **Planner throttled:** show endpoint health and explain the broad compatible GPU pool,
+  600-second idle window, and one-worker cost ceiling.
 - **Build regression:** roll back from Runpod's Builds tab and explain the release gate.
 - **Live API issue:** show the last successful Runpod job, redacted JSON, image, and exact
   commit/release used. Never substitute an unverified claim.

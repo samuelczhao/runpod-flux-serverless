@@ -57,6 +57,14 @@ Copy `.env.example` to the ignored root `.env` and set:
 Never commit these values. The Hugging Face token belongs in Runpod's gated cached-model
 configuration, not the web application.
 
+## Planner endpoint settings
+
+The Qwen planner scales from zero and remains capped at one worker. Its 600-second idle
+timeout keeps the model warm across the first dream, branch, and second dream without
+paying for an always-on worker. The allowed GPU pool includes compatible 16-24 GB
+Ampere and Ada cards, and does not impose an unnecessary CUDA-version restriction.
+This reduces host-capacity throttling while preserving the one-worker cost ceiling.
+
 ## Local run
 
 From the repository root:
