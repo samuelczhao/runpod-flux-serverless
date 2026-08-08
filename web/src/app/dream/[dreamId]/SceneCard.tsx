@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "
 import Image from "next/image";
 import type { StoryScene, StoryVersion } from "@/lib/domain/story";
 
-export function SceneCard({ dreamId, scene, onStoryChanged }: {
+export function SceneCard({ dreamId, scene, totalMoments, onStoryChanged }: {
   readonly dreamId: string;
   readonly scene: StoryScene;
+  readonly totalMoments: number;
   readonly onStoryChanged: () => void;
 }): ReactElement {
   const [editing, setEditing] = useState(false);
@@ -23,16 +24,17 @@ export function SceneCard({ dreamId, scene, onStoryChanged }: {
   }, [editing]);
   const cancelEditing = () => { restoreTriggerFocus.current = true; setEditing(false); };
   const branchSubmitted = () => { setBranchPending(true); setEditing(false); };
-  return <article className="scene-card">
-    <SelectedScene scene={scene} />
-    <div className="scene-copy"><span>Scene {scene.ordinal}</span><p>{scene.caption}</p>
+  return <article className="story-moment">
+    <div className="moment-image"><SelectedScene scene={scene} /></div>
+    <div className="moment-copy"><p className="moment-number">Moment {scene.ordinal}
+      <span> of {totalMoments}</span></p><p className="moment-caption">{scene.caption}</p>
       <div className="branch-panel" ref={branchPanelRef} tabIndex={-1}>
         {!branch && !editing && !branchPending ? <button className="scene-edit-trigger"
-          onClick={() => setEditing(true)} ref={triggerRef} type="button">Change this scene</button> : null}
+          onClick={() => setEditing(true)} ref={triggerRef} type="button">Try a different version</button> : null}
         {editing && !branch ? <BranchForm dreamId={dreamId} onCancel={cancelEditing}
           onSubmitted={branchSubmitted} onStoryChanged={onStoryChanged} scene={scene} /> : null}
         {branchPending && !branch ? <p className="branch-status" role="status">
-          Alternative rendering on Runpod…</p> : null}
+          Making another version…</p> : null}
         {branch ? <BranchState branch={branch} onStoryChanged={onStoryChanged} scene={scene} /> : null}
       </div>
     </div>
@@ -60,14 +62,14 @@ function BranchForm({ dreamId, scene, onCancel, onSubmitted, onStoryChanged }: {
     () => { onSubmitted(); onStoryChanged(); },
   );
   return <form className="branch-form" onSubmit={submit}>
-    <label htmlFor={`branch-${scene.id}`}>What should change?</label>
+    <label htmlFor={`branch-${scene.id}`}>What would you like to change?</label>
     <textarea id={`branch-${scene.id}`} maxLength={1_000} minLength={3} required
       placeholder="Make the doorway open onto the ocean…" value={instruction}
       onChange={(event) => setInstruction(event.target.value)} ref={instructionRef} />
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <div><button className="button ghost" onClick={onCancel} type="button">Cancel</button>
       <button className="button primary" disabled={submitting} type="submit">
-        {submitting ? "Creating branch…" : "Generate alternative"}</button></div>
+        {submitting ? "Starting…" : "Make another version"}</button></div>
   </form>;
 }
 
@@ -77,16 +79,16 @@ function BranchState({ branch, scene, onStoryChanged }: {
   const selected = scene.versions.find((version) => version.isSelected);
   const alternative = scene.versions.find((version) => version.id !== selected?.id && version.imageUrl);
   if (alternative && selected?.imageUrl) {
-    return <><p className="sr-only" aria-live="polite" role="status">Alternative scene ready.</p>
+    return <><p className="sr-only" aria-live="polite" role="status">New version ready.</p>
       <BranchComparison sceneId={scene.id} current={selected} alternative={alternative}
         onStoryChanged={onStoryChanged} /></>;
   }
   if (["FAILED", "CANCELLED"].includes(branch.status)) {
-    return <p className="branch-status form-error" role="alert">The alternative could not be generated.</p>;
+    return <p className="branch-status form-error" role="alert">We couldn’t make the new version.</p>;
   }
   const message = branch.status === "SUBMIT_UNKNOWN"
-    ? "Alternative submission is being reconciled…"
-    : "Alternative rendering on Runpod…";
+    ? "Still working on your new version…"
+    : "Making another version…";
   return <p className="branch-status" aria-live="polite" role="status">{message}</p>;
 }
 
@@ -100,11 +102,11 @@ function BranchComparison({ sceneId, current, alternative, onStoryChanged }: {
     sceneId, current.id, alternative.id, setSelecting, setError, onStoryChanged,
   );
   return <div className="branch-comparison">
-    <p><strong>Alternative:</strong> {alternative.editInstruction ?? "Scene variation"}</p>
-    <Image alt="Alternative dream scene" height={1024} src={alternative.imageUrl!} unoptimized width={1024} />
+    <p><strong>New version:</strong> {alternative.editInstruction ?? "A different take on this moment"}</p>
+    <Image alt="New version of this dream moment" height={1024} src={alternative.imageUrl!} unoptimized width={1024} />
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <button className="button ghost" disabled={selecting} onClick={choose} type="button">
-      {selecting ? "Choosing…" : "Choose this version"}</button>
+      {selecting ? "Saving…" : "Use this version"}</button>
   </div>;
 }
 
@@ -120,7 +122,7 @@ async function submitBranch(
     if (!response.ok) throw new Error("Branch request failed");
     operationId.current = null; onClose();
   } catch {
-    setError("The alternative could not be started."); setSubmitting(false);
+    setError("The new version could not be started."); setSubmitting(false);
   }
 }
 
@@ -150,7 +152,7 @@ async function chooseVersion(
     if (!response.ok) throw new Error("Selection request failed");
     onStoryChanged();
   } catch {
-    setError("The scene changed elsewhere. Refresh and try again.");
+    setError("This moment changed elsewhere. Refresh and try again.");
   } finally {
     setSelecting(false);
   }

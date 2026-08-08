@@ -6,6 +6,7 @@ import { inspectImageJobStep, persistImageStep } from "@/workflows/steps/status"
 import { cancelGenerationJobStep } from "@/workflows/steps/cancel";
 import { PROVIDER_POLL_ATTEMPTS, providerPollDelay } from "@/workflows/polling";
 import {
+  getDreamSceneOrdinalsStep,
   getDreamWorkflowStatusStep,
   recordDreamWorkflowStep,
   releaseDreamWorkflowExecutionStep,
@@ -44,8 +45,8 @@ async function resumeDreamGeneration(dreamId: string): Promise<void> {
     status = "GENERATING_SCENES";
   }
   if (status === "GENERATING_SCENES") {
-    await generateScene(dreamId, 2);
-    await generateScene(dreamId, 3);
+    const ordinals = await getDreamSceneOrdinalsStep(dreamId);
+    for (const ordinal of ordinals.slice(1)) await generateScene(dreamId, ordinal);
     await finalizeDreamStep(dreamId);
     return;
   }
@@ -64,7 +65,7 @@ async function generateAnchor(dreamId: string): Promise<void> {
   await persistImageStep(jobId);
 }
 
-async function generateScene(dreamId: string, ordinal: 2 | 3): Promise<void> {
+async function generateScene(dreamId: string, ordinal: number): Promise<void> {
   const jobId = await submitSceneStep(dreamId, ordinal);
   await waitForImage(jobId);
   await persistImageStep(jobId);

@@ -21,6 +21,9 @@ const versionRowSchema = z.object({
   storage_path: z.string().nullable(), edit_instruction: z.string().nullable(),
   status: jobStatusSchema, is_selected: z.boolean(),
 }).strict();
+const signedImageSchema = z.object({
+  error: z.string().nullable(), path: z.string().nullable(), signedUrl: z.string().nullable(),
+}).passthrough();
 
 export async function readDreamStory(
   client: SupabaseClient<Database>,
@@ -57,7 +60,8 @@ async function attachSceneVersions(
 ): Promise<StoryScene[]> {
   if (scenes.length === 0) return [];
   const versions = await readSceneVersions(client, scenes.map((scene) => scene.id));
-  return Promise.all(scenes.map((scene) => attachVersions(client, scene, versions)));
+  const imageUrls = await signImages(client, versions);
+  return scenes.map((scene) => attachVersions(scene, versions, imageUrls));
 }
 
 async function readSceneVersions(client: SupabaseClient<Database>, sceneIds: readonly string[]) {
@@ -67,31 +71,50 @@ async function readSceneVersions(client: SupabaseClient<Database>, sceneIds: rea
   return parseDatabaseRows(versionRowSchema, result.data);
 }
 
-async function attachVersions(
-  client: SupabaseClient<Database>,
+function attachVersions(
   scene: z.infer<typeof sceneRowSchema>,
   versions: readonly z.infer<typeof versionRowSchema>[],
-): Promise<StoryScene> {
+  imageUrls: ReadonlyMap<string, string>,
+): StoryScene {
   const matching = versions.filter((version) => version.scene_id === scene.id);
-  const storyVersions = await Promise.all(matching.map((version) => attachVersionImage(client, version)));
+  const storyVersions = matching.map((version) => attachVersionImage(version, imageUrls));
   const selected = storyVersions.find((version) => version.isSelected);
   return { ...scene, versionId: selected?.id ?? null, imageUrl: selected?.imageUrl ?? null, versions: storyVersions };
 }
 
-async function attachVersionImage(
-  client: SupabaseClient<Database>,
+function attachVersionImage(
   version: z.infer<typeof versionRowSchema>,
+  imageUrls: ReadonlyMap<string, string>,
 ) {
-  const imageUrl = version.storage_path ? await signImage(client, version.storage_path) : null;
+  const imageUrl = version.storage_path ? requireSignedImage(imageUrls, version.storage_path) : null;
   return { id: version.id, parentVersionId: version.parent_version_id,
     editInstruction: version.edit_instruction, status: version.status,
     isSelected: version.is_selected, imageUrl };
 }
 
-async function signImage(client: SupabaseClient<Database>, path: string): Promise<string> {
-  const result = await client.storage.from("dream-images").createSignedUrl(path, IMAGE_URL_TTL_SECONDS);
+async function signImages(
+  client: SupabaseClient<Database>,
+  versions: readonly z.infer<typeof versionRowSchema>[],
+): Promise<ReadonlyMap<string, string>> {
+  const storedPaths = versions.map((version) => version.storage_path)
+    .filter((path): path is string => path !== null);
+  const paths = [...new Set(storedPaths)];
+  if (paths.length === 0) return new Map();
+  const result = await client.storage.from("dream-images").createSignedUrls(paths, IMAGE_URL_TTL_SECONDS);
   throwIfDatabaseError(result.error);
-  return z.url().parse(result.data?.signedUrl);
+  const images = z.array(signedImageSchema).length(paths.length).parse(result.data);
+  return new Map(images.map((image) => {
+    if (image.error || !image.path || !image.signedUrl) {
+      throw new Error("Could not sign one or more dream images");
+    }
+    return [image.path, z.url().parse(image.signedUrl)] as const;
+  }));
+}
+
+function requireSignedImage(imageUrls: ReadonlyMap<string, string>, path: string): string {
+  const imageUrl = imageUrls.get(path);
+  if (!imageUrl) throw new Error("No signed URL returned for a dream image");
+  return imageUrl;
 }
 
 function needsTranscriptReview(dream: z.infer<typeof dreamRowSchema>): boolean {

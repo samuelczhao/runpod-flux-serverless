@@ -21,6 +21,41 @@ Tradeoff: the application has more infrastructure than the minimum submission. T
 worker remains runnable and documented on its own, and each added provider boundary has
 strict validation, persisted identity, and an explicit one-worker concurrency ceiling.
 
+### Adaptive scene count with an explicit identity path
+
+The planner chooses one to six scenes and is instructed to use the fewest scenes that
+cover every important visual beat. The plan transaction creates contiguous ordinals,
+and the durable workflow validates and records that ordered list before iterating.
+Stories without a Dream Self use the required custom FLUX worker for scene one and its
+selected output as the Kontext reference for later scenes. Stories with a Dream Self use
+the same private normalized face reference for every Kontext scene, prioritizing
+recognizability over image-to-image propagation.
+
+Tradeoff: longer dreams can submit up to six sequential image jobs, increasing latency
+and spend. The hard upper bound, sequential execution, persisted operation keys, and
+dynamic finalization keep that work predictable and replay-safe, while short memories
+avoid padded or repetitive images.
+
+### Private Dream Self instead of identity training
+
+One optional user photo is uploaded directly to a private Supabase bucket through a
+single-use signed token. The server bounds decoded pixels, corrects orientation, strips
+metadata, converts to sRGB PNG, and deletes the original. Consent version and timestamp
+are stored with the reference. New dreams cannot use the reference after its 30-day
+boundary, and a daily reconciliation sweep removes expired, replaced, failed, and
+race-created deterministic objects.
+
+Each paid identity scene is claimed only after a 15-minute provider URL can be minted.
+The durable hash contains the private storage path and content SHA, never the expiring
+URL. FLUX.1 Kontext receives the same immutable reference plus a style, visual bible,
+and scene prompt whose budgets preserve all three even at the 2,000-character limit.
+
+Tradeoff: one-reference Kontext cannot simultaneously receive the prior scene and the
+original face. Reusing the original maximizes facial consistency; the visual bible,
+seeded prompts, palette, and recurring details carry story continuity. Fine-tuning or a
+custom identity adapter would add consent, training, deletion, latency, and model-hosting
+complexity disproportionate to this case study.
+
 ### Durable paid-work accounting
 
 The application claims a generation operation in Postgres before calling Runpod. The

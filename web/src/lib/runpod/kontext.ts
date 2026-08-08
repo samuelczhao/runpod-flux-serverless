@@ -66,7 +66,7 @@ function requireHttpsUrl(value: string): string {
 function kontextParameters(prompt: string, seed: number | undefined): Readonly<Record<string, unknown>> {
   return {
     prompt: z.string().trim().min(1).max(2_000).parse(prompt),
-    negative_prompt: "text, watermark, duplicate subjects",
+    negative_prompt: "text, watermark, duplicate person, extra face, distorted face, unnatural anatomy",
     seed: seed ?? -1,
     num_inference_steps: 28,
     guidance: 2,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  dreamStorySchema,
   preserveStoryImageUrls,
   shouldPollDream,
   type DreamStory,
@@ -23,6 +24,20 @@ function version(status: StoryVersion["status"]): StoryVersion {
 }
 
 describe("dream story polling", () => {
+  it.each([1, 6])("accepts a story with %i scenes", (sceneCount) => {
+    const scene = story("READY", [version("COMPLETED")]).scenes[0];
+    expect(dreamStorySchema.safeParse({
+      ...story("READY"), scenes: Array.from({ length: sceneCount }, () => scene),
+    }).success).toBe(true);
+  });
+
+  it("rejects a story with more than six scenes", () => {
+    const scene = story("READY", [version("COMPLETED")]).scenes[0];
+    expect(dreamStorySchema.safeParse({
+      ...story("READY"), scenes: Array.from({ length: 7 }, () => scene),
+    }).success).toBe(false);
+  });
+
   it.each(["DRAFT", "PLANNING", "GENERATING_ANCHOR", "GENERATING_SCENES"] as const)(
     "continues while %s can still advance",
     (status) => expect(shouldPollDream(story(status))).toBe(true),

@@ -112,6 +112,11 @@ The invalid-width job reached `FAILED` with
 
 ## Live DreamTrace acceptance
 
+Current acceptance requires a planner-selected count from one through six, contiguous
+ordinals starting at one, and exactly one selected completed image per scene. Exercise
+both boundary counts before release. The measurements below are historical evidence
+from the earlier fixed three-scene contract.
+
 Measured on August 7, 2026 with scale-to-zero endpoints and a synthetic, clearly
 labeled 13-second voice fixture:
 
@@ -133,6 +138,30 @@ After the planner mood contract was tightened, a planner-only scale-from-zero ch
 remained in worker initialization for ten minutes and was cancelled without inference.
 The live contract result is therefore intentionally unclaimed; the GPU-free web suite
 validates the planner boundary, and the remote database constraint rejects malformed mood arrays.
+
+## Dream Self acceptance
+
+The GPU-free web suite covers normalization limits and metadata removal, versioned
+consent, signed-upload response projection, stored/ready replay, source cleanup replay,
+ambiguous database completion, deterministic tombstone cleanup, provider-URL signing
+before job claim, stable request hashing, style/identity audio retry behavior, and prompt
+budget preservation. Current local result: 42 files and 196 tests passed, followed by
+zero-warning ESLint and a successful Next.js Production build.
+
+Before claiming the feature in Production, use a synthetic or explicitly consented
+portrait and verify:
+
+1. replacement does not remove the current photo before the new one is ready;
+2. the original upload disappears while the normalized object remains private;
+3. short, medium, and six-beat dreams create the planner-selected scene count;
+4. every identity-aware scene depicts the same recognizable person in the selected style;
+5. a no-photo story still uses the repository's custom FLUX endpoint for scene one;
+6. manual removal blocks during active generation and succeeds afterward;
+7. no signed identity URL, token, user ID, or prompt appears in captured logs.
+
+Identity quality is a visual acceptance criterion, not a unit-test claim. Record the
+fixture provenance, prompt, style, selected images, Runpod timings, and exact release
+commit without committing the face image or signed URLs.
 
 ## Queue check
 

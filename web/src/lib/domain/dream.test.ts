@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { dreamPlanSchema } from "@/lib/domain/dream";
 
 describe("dream plan contract", () => {
-  it("accepts exactly three scenes", () => {
-    const result = dreamPlanSchema.safeParse(validPlan());
-    expect(result.success).toBe(true);
+  it.each([1, 3, 6])("accepts a plan with %i scenes", (sceneCount) => {
+    expect(dreamPlanSchema.safeParse(validPlan(sceneCount)).success).toBe(true);
+  });
+
+  it.each([0, 7])("rejects a plan with %i scenes", (sceneCount) => {
+    expect(dreamPlanSchema.safeParse(validPlan(sceneCount)).success).toBe(false);
   });
 
   it("rejects a plan that omits the visual bible", () => {
@@ -29,7 +32,7 @@ describe("dream plan contract", () => {
   });
 });
 
-function validPlan(): Record<string, unknown> {
+function validPlan(sceneCount = 3): Record<string, unknown> {
   const scene = { caption: "A moonlit station", prompt: "A moonlit station in watercolor" };
   return {
     title: "The Last Train",
@@ -37,6 +40,6 @@ function validPlan(): Record<string, unknown> {
     mood: ["wonder", "uncertainty"],
     motifs: [{ label: "train", kind: "object" }],
     visual_bible: "Indigo watercolor, one red-coated traveler, soft moonlight.",
-    scenes: [scene, scene, scene],
+    scenes: Array.from({ length: sceneCount }, () => scene),
   };
 }

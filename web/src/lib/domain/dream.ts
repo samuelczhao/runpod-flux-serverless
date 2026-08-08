@@ -30,6 +30,9 @@ export const scenePlanSchema = z.object({
   prompt: z.string().trim().min(1).max(2_000),
 }).strict();
 
+export const MIN_STORY_SCENES = 1;
+export const MAX_STORY_SCENES = 6;
+
 export const MOOD_LABELS = [
   "awe", "calm", "confusion", "curiosity", "delight", "fear", "hope",
   "joy", "loneliness", "longing", "melancholy", "mystery", "nostalgia",
@@ -45,7 +48,7 @@ export const dreamPlanSchema = z.object({
   mood: moodSchema,
   motifs: z.array(motifSchema).min(1).max(8),
   visual_bible: z.string().trim().min(1).max(1_200),
-  scenes: z.array(scenePlanSchema).length(3),
+  scenes: z.array(scenePlanSchema).min(MIN_STORY_SCENES).max(MAX_STORY_SCENES),
 }).strict();
 
 export type DreamPlan = z.infer<typeof dreamPlanSchema>;

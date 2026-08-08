@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { dreamStatusSchema } from "@/lib/domain/dream";
+import { dreamStatusSchema, MAX_STORY_SCENES } from "@/lib/domain/dream";
+import { visualStyleSchema } from "@/lib/domain/identity";
 
 export const uuidSchema = z.uuid();
 
@@ -25,6 +26,8 @@ export const processingDreamSchema = z.object({
   audio_upload_expires_at: z.iso.datetime({ offset: true }).nullable(),
   retain_audio: z.boolean(),
   visual_bible: z.string().nullable(),
+  identity_reference_id: uuidSchema.nullable(),
+  visual_style: visualStyleSchema,
   plan_hash: z.string().nullable(),
   error_code: z.string().nullable(),
 }).strict();
@@ -32,7 +35,7 @@ export const processingDreamSchema = z.object({
 export const sceneSchema = z.object({
   id: uuidSchema,
   dream_id: uuidSchema,
-  ordinal: z.number().int().min(1).max(3),
+  ordinal: z.number().int().min(1).max(MAX_STORY_SCENES),
   caption: z.string(),
   prompt: z.string(),
 }).strict();

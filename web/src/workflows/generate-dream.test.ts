@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { generateDreamWorkflow } from "@/workflows/generate-dream";
 
 const mocks = vi.hoisted(() => ({
-  cancel: vi.fn(), fail: vi.fn(), finalize: vi.fn(), getStatus: vi.fn(), inspectImage: vi.fn(),
+  cancel: vi.fn(), fail: vi.fn(), finalize: vi.fn(), getOrdinals: vi.fn(), getStatus: vi.fn(), inspectImage: vi.fn(),
   inspectPlan: vi.fn(), persistImage: vi.fn(), persistPlan: vi.fn(), record: vi.fn(),
   release: vi.fn(), submitAnchor: vi.fn(), submitPlan: vi.fn(), submitScene: vi.fn(),
 }));
@@ -26,6 +26,7 @@ vi.mock("@/workflows/steps/status", () => ({
 }));
 vi.mock("@/workflows/steps/cancel", () => ({ cancelGenerationJobStep: mocks.cancel }));
 vi.mock("@/workflows/steps/dream-workflow", () => ({
+  getDreamSceneOrdinalsStep: mocks.getOrdinals,
   getDreamWorkflowStatusStep: mocks.getStatus,
   recordDreamWorkflowStep: mocks.record,
   releaseDreamWorkflowExecutionStep: mocks.release,
@@ -34,6 +35,7 @@ vi.mock("@/workflows/steps/dream-workflow", () => ({
 beforeEach(() => {
   for (const mock of Object.values(mocks)) mock.mockReset();
   mocks.record.mockResolvedValue(undefined);
+  mocks.getOrdinals.mockResolvedValue([1, 2, 3]);
 });
 
 it("releases a claim without failing the dream when run recording fails", async () => {
@@ -54,6 +56,30 @@ it("resumes from scene generation without repeating earlier GPU work", async () 
   expect(mocks.submitAnchor).not.toHaveBeenCalled();
   expect(mocks.submitScene).toHaveBeenNthCalledWith(1, "dream", 2);
   expect(mocks.submitScene).toHaveBeenNthCalledWith(2, "dream", 3);
+  expect(mocks.finalize).toHaveBeenCalledWith("dream");
+});
+
+it("finalizes a one-scene dream after its anchor", async () => {
+  mocks.getStatus.mockResolvedValue("GENERATING_SCENES");
+  mocks.getOrdinals.mockResolvedValue([1]);
+
+  await expect(generateDreamWorkflow("dream", "claim"))
+    .resolves.toEqual({ dreamId: "dream", status: "READY" });
+  expect(mocks.submitScene).not.toHaveBeenCalled();
+  expect(mocks.finalize).toHaveBeenCalledWith("dream");
+});
+
+it("generates every continuation in a six-scene dream", async () => {
+  mocks.getStatus.mockResolvedValue("GENERATING_SCENES");
+  mocks.getOrdinals.mockResolvedValue([1, 2, 3, 4, 5, 6]);
+  mocks.submitScene.mockImplementation(async (_dreamId: string, ordinal: number) => `job-${ordinal}`);
+  mocks.inspectImage.mockResolvedValue("completed");
+
+  await expect(generateDreamWorkflow("dream", "claim"))
+    .resolves.toEqual({ dreamId: "dream", status: "READY" });
+  expect(mocks.submitScene.mock.calls).toEqual([
+    ["dream", 2], ["dream", 3], ["dream", 4], ["dream", 5], ["dream", 6],
+  ]);
   expect(mocks.finalize).toHaveBeenCalledWith("dream");
 });
 

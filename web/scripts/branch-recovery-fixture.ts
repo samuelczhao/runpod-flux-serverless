@@ -12,7 +12,7 @@ const idSchema = z.object({ id: z.uuid() });
 const claimSchema = z.object({ job_id: z.uuid() });
 const FIXTURE_MOOD = ["wonder"] as const;
 const FIXTURE_SEED = 7;
-const ONE_PIXEL_PNG = Buffer.from(
+export const ONE_PIXEL_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
   "base64",
 );
@@ -158,11 +158,19 @@ export async function cleanup(
   admin: AdminClient,
   userId: string,
   storagePaths: readonly string[],
+  identityPaths: readonly string[] = [],
 ): Promise<void> {
   const failures: unknown[] = [];
   await captureFailure(removeArtifacts(admin, storagePaths), failures);
+  await captureFailure(removeIdentityArtifacts(admin, identityPaths), failures);
   await captureFailure(deleteUser(admin, userId), failures);
   if (failures.length) throw new AggregateError(failures, "Fixture cleanup failed");
+}
+
+async function removeIdentityArtifacts(admin: AdminClient, paths: readonly string[]): Promise<void> {
+  if (!paths.length) return;
+  const result = await admin.storage.from("identity-references").remove([...paths]);
+  assertNoError(result.error);
 }
 
 async function removeArtifacts(admin: AdminClient, paths: readonly string[]): Promise<void> {

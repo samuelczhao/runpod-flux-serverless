@@ -7,6 +7,17 @@ import { parseDatabaseRow, parseDatabaseRows, throwIfDatabaseError } from "@/lib
 import { sceneSchema, sceneVersionSchema, type Scene, type SceneVersion } from "@/lib/database/schemas";
 import { sha256 } from "@/lib/database/hash";
 import { assertVersionModel } from "@/lib/domain/version";
+import { MAX_STORY_SCENES, MIN_STORY_SCENES } from "@/lib/domain/dream";
+
+const sceneOrdinalRowsSchema = z.array(z.object({
+  ordinal: z.number().int().min(MIN_STORY_SCENES).max(MAX_STORY_SCENES),
+}).strict()).min(MIN_STORY_SCENES).max(MAX_STORY_SCENES).superRefine((rows, context) => {
+  rows.forEach((row, index) => {
+    if (row.ordinal !== index + 1) {
+      context.addIssue({ code: "custom", message: "Scene ordinals must be contiguous", path: [index, "ordinal"] });
+    }
+  });
+});
 
 export async function getScene(dreamId: string, ordinal: number): Promise<Scene> {
   const result = await createSupabaseAdminClient().from("scenes").select(SCENE_FIELDS)
@@ -20,6 +31,13 @@ export async function getSceneById(sceneId: string): Promise<Scene> {
     .eq("id", sceneId).single();
   throwIfDatabaseError(result.error);
   return parseDatabaseRow(sceneSchema, result.data);
+}
+
+export async function getSceneOrdinals(dreamId: string): Promise<number[]> {
+  const result = await createSupabaseAdminClient().from("scenes").select("ordinal")
+    .eq("dream_id", dreamId).order("ordinal");
+  throwIfDatabaseError(result.error);
+  return sceneOrdinalRowsSchema.parse(result.data).map((row) => row.ordinal);
 }
 
 export async function ensureInitialVersion(

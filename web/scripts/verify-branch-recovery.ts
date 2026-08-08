@@ -19,6 +19,7 @@ import {
   type Fixture,
 } from "./branch-recovery-fixture.ts";
 import { assertAudioPreparation } from "./audio-lifecycle-fixture.ts";
+import { assertIdentityLifecycle } from "./identity-lifecycle-fixture.ts";
 
 const workflowClaimSchema = z.object({ workflow_id: z.string().nullable(), claimed: z.boolean() });
 const stateSchema = z.object({ status: z.string() });
@@ -32,12 +33,13 @@ async function main(): Promise<void> {
   const admin = createAdmin(env);
   const userId = await createAnonymousUser(env);
   const storagePaths: string[] = [];
+  const identityPaths: string[] = [];
   try {
-    await verifyFixture(env, admin, userId, storagePaths);
+    await verifyFixture(env, admin, userId, storagePaths, identityPaths);
   } catch (error: unknown) {
-    await cleanupAfterFailure(admin, userId, storagePaths, error);
+    await cleanupAfterFailure(admin, userId, storagePaths, identityPaths, error);
   }
-  await cleanup(admin, userId, storagePaths);
+  await cleanup(admin, userId, storagePaths, identityPaths);
 }
 
 async function verifyFixture(
@@ -45,9 +47,11 @@ async function verifyFixture(
   admin: AdminClient,
   userId: string,
   storagePaths: string[],
+  identityPaths: string[],
 ): Promise<void> {
   await assertAudioPreparation(env, admin, userId);
   await assertTextWorkflowRecovery(admin, userId);
+  await assertIdentityLifecycle(admin, userId, storagePaths, identityPaths);
   const fixture = await createFixture(admin, userId, storagePaths);
   await assertNullGuards(env, fixture);
   await assertSingleBranchInvariant(env, admin, fixture);
@@ -61,7 +65,13 @@ async function verifyFixture(
 async function assertTextWorkflowRecovery(admin: AdminClient, userId: string): Promise<void> {
   const operationId = crypto.randomUUID();
   const transcript = "A moonlit library floated over a quiet ocean.";
-  const args = { p_user_id: userId, p_operation_key: operationId, p_transcript: transcript };
+  const args = {
+    p_user_id: userId,
+    p_operation_key: operationId,
+    p_transcript: transcript,
+    p_identity_reference_id: null,
+    p_visual_style: "dream-cinema" as const,
+  };
   const first = await admin.rpc("prepare_text_dream", args);
   const replay = await admin.rpc("prepare_text_dream", args);
   assertNoError(first.error); assertNoError(replay.error);
@@ -137,10 +147,11 @@ async function cleanupAfterFailure(
   admin: AdminClient,
   userId: string,
   storagePaths: readonly string[],
+  identityPaths: readonly string[],
   error: unknown,
 ): Promise<never> {
   try {
-    await cleanup(admin, userId, storagePaths);
+    await cleanup(admin, userId, storagePaths, identityPaths);
   } catch (cleanupError: unknown) {
     throw new AggregateError([error, cleanupError], "Fixture assertions and cleanup both failed");
   }

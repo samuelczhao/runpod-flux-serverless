@@ -4,6 +4,7 @@ import {
   recordDreamWorkflow,
   releaseDreamWorkflowExecution,
 } from "@/lib/database/dreams";
+import { getSceneOrdinals } from "@/lib/database/scenes";
 
 export async function recordDreamWorkflowStep(
   dreamId: string,
@@ -26,4 +27,9 @@ export async function releaseDreamWorkflowExecutionStep(
 export async function getDreamWorkflowStatusStep(dreamId: string): Promise<DreamStatus> {
   "use step";
   return (await getProcessingDream(dreamId)).status;
+}
+
+export async function getDreamSceneOrdinalsStep(dreamId: string): Promise<number[]> {
+  "use step";
+  return getSceneOrdinals(dreamId);
 }

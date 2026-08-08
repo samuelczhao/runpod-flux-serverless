@@ -1,3 +1,9 @@
+import type {
+  IdentityMimeType,
+  IdentityStatus,
+  VisualStyle,
+} from "@/lib/domain/identity";
+
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type DreamStatus =
@@ -27,6 +33,8 @@ type DreamRow = {
   title: string | null;
   summary: string | null;
   visual_bible: string | null;
+  identity_reference_id: string | null;
+  visual_style: VisualStyle;
   workflow_run_id: string | null;
   workflow_claim_token: string | null;
   workflow_claimed_at: string | null;
@@ -35,6 +43,30 @@ type DreamRow = {
   retain_audio: boolean;
   plan_hash: string | null;
   mood: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+type IdentityReferenceRow = {
+  id: string;
+  user_id: string;
+  operation_key: string;
+  status: IdentityStatus;
+  source_mime_type: IdentityMimeType;
+  upload_path: string | null;
+  storage_path: string | null;
+  size_bytes: number | null;
+  width: number | null;
+  height: number | null;
+  content_sha256: string | null;
+  is_active: boolean;
+  consent_confirmed_at: string;
+  consent_version: string;
+  upload_expires_at: string | null;
+  retention_expires_at: string | null;
+  cleanup_due_at: string | null;
+  ready_at: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -108,6 +140,8 @@ type DreamInsert = {
   mood?: string[];
   status?: DreamStatus;
   retain_audio?: boolean;
+  identity_reference_id?: string | null;
+  visual_style?: VisualStyle;
 }
 
 type SceneVersionInsert = {
@@ -137,6 +171,7 @@ export type Database = {
       motifs: Table<MotifRow>;
       dream_motifs: Table<DreamMotifRow>;
       generation_jobs: Table<JobRow>;
+      identity_references: Table<IdentityReferenceRow>;
     };
     Views: Record<never, never>;
     Functions: {
@@ -187,12 +222,72 @@ export type Database = {
       mark_audio_deleted: VoidFunction<{ p_dream_id: string; p_storage_path: string }>;
       prepare_audio_deletion: { Args: { p_dream_id: string }; Returns: string | null };
       prepare_audio_dream: {
-        Args: { p_user_id: string; p_operation_key: string; p_mime_type: string };
+        Args: {
+          p_user_id: string;
+          p_operation_key: string;
+          p_mime_type: string;
+          p_identity_reference_id: string | null;
+          p_visual_style: VisualStyle;
+        };
         Returns: string;
       };
       prepare_text_dream: {
-        Args: { p_user_id: string; p_operation_key: string; p_transcript: string };
+        Args: {
+          p_user_id: string;
+          p_operation_key: string;
+          p_transcript: string;
+          p_identity_reference_id: string | null;
+          p_visual_style: VisualStyle;
+        };
         Returns: string;
+      };
+      prepare_identity_reference: {
+        Args: {
+          p_user_id: string;
+          p_operation_key: string;
+          p_mime_type: IdentityMimeType;
+          p_consent_confirmed: boolean;
+          p_consent_version: string;
+        };
+        Returns: {
+          reference_id: string;
+          reference_status: IdentityStatus;
+          source_path: string | null;
+        }[];
+      };
+      complete_identity_reference: VoidFunction<{
+        p_reference_id: string;
+        p_user_id: string;
+        p_storage_path: string;
+        p_size_bytes: number;
+        p_width: number;
+        p_height: number;
+        p_content_sha256: string;
+      }>;
+      begin_identity_deletion: {
+        Args: { p_reference_id: string; p_user_id: string };
+        Returns: { source_path: string | null; reference_path: string | null }[];
+      };
+      complete_identity_deletion: VoidFunction<{
+        p_reference_id: string;
+        p_user_id: string;
+      }>;
+      complete_identity_tombstone_cleanup: VoidFunction<{
+        p_reference_id: string;
+        p_user_id: string;
+      }>;
+      mark_identity_source_deleted: VoidFunction<{
+        p_reference_id: string;
+        p_user_id: string;
+        p_source_path: string;
+      }>;
+      get_identity_cleanup_candidates: {
+        Args: { p_limit: number };
+        Returns: {
+          reference_id: string;
+          user_id: string;
+          cleanup_kind: "source" | "reference" | "tombstone";
+        }[];
       };
       claim_audio_cleanup_workflow: {
         Args: { p_user_id: string; p_dream_id: string; p_claim_token: string };
@@ -236,6 +331,11 @@ export type Database = {
         p_scene_id: string;
         p_expected_version_id: string;
         p_next_version_id: string;
+      }>;
+      apply_dream_plan: VoidFunction<{
+        p_dream_id: string;
+        p_plan: Json;
+        p_plan_hash: string;
       }>;
       finalize_dream: VoidFunction<{ p_dream_id: string }>;
       claim_generation_job: {

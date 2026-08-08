@@ -4,14 +4,29 @@ import { audioUploadRequestSchema } from "@/lib/domain/audio";
 import { createDreamAudioUpload } from "@/lib/database/storage";
 import { prepareAudioDream } from "@/lib/database/dreams";
 import { startAudioCleanup } from "@/workflows/start-audio-cleanup";
+import {
+  DEFAULT_VISUAL_STYLE,
+  visualStyleSchema,
+} from "@/lib/domain/identity";
+
+const requestSchema = audioUploadRequestSchema.extend({
+  identityReferenceId: z.uuid().nullable().default(null),
+  visualStyle: visualStyleSchema.default(DEFAULT_VISUAL_STYLE),
+});
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const input = audioUploadRequestSchema.parse(await request.json() as unknown);
+    const input = requestSchema.parse(await request.json() as unknown);
     const client = await createSupabaseServerClient();
     const auth = await client.auth.getUser();
     if (auth.error || !auth.data.user) return unauthorized();
-    const dreamId = await prepareAudioDream(auth.data.user.id, input.operationId, input.mimeType);
+    const dreamId = await prepareAudioDream(
+      auth.data.user.id,
+      input.operationId,
+      input.mimeType,
+      input.identityReferenceId,
+      input.visualStyle,
+    );
     await startAudioCleanup(dreamId, auth.data.user.id);
     const upload = await createDreamAudioUpload(auth.data.user.id, dreamId, input.mimeType);
     return Response.json({ dreamId, ...upload }, { status: 201 });

@@ -81,8 +81,10 @@ anonymous-session checks.
 4. Stage the reviewed commit without moving the Production domain:
    `npx vercel --prod --skip-domain` from the repository root.
 5. Open that exact staged URL in a private browser window, confirm an anonymous session
-   enables both capture modes, and submit one prepared text dream. Verify the durable run,
-   three private images, journal entry, and one idempotent scene branch.
+   enables both capture modes, and submit one no-photo text dream. Verify its adaptive
+   scene count, custom FLUX anchor, private images, journal entry, and one idempotent branch.
+   Then upload a synthetic or explicitly consented portrait, select a non-default style,
+   and verify one complete identity-aware story before removing the reference.
 6. Only after staged acceptance passes, run
    `npx vercel promote <deployment-url>` from the repository root.
 7. Confirm the Production domain serves the same commit and creates its own anonymous
@@ -137,6 +139,7 @@ is failed and released for deletion so a lost transcription cannot retain audio 
 - Green GitHub and Vercel build checks.
 - Redacted workflow run stages and Runpod timings.
 - One text result, one voice result, and one selected branch.
+- One identity-aware result with documented fixture consent and no stored signed URL.
 - Final zero-worker state and total credit spend.
 
 Do not capture API keys, signed image URLs, anonymous user IDs, or worker environment

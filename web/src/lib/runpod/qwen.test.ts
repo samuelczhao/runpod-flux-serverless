@@ -8,7 +8,7 @@ describe("Qwen dream planner", () => {
     expect(input).toMatchObject({
       route: "/v1/chat/completions", method: "POST",
       body: {
-        model: "Qwen/Qwen3-4B-AWQ", max_tokens: 1_600, temperature: 0, seed: 7,
+        model: "Qwen/Qwen3-4B-AWQ", max_tokens: 3_200, temperature: 0, seed: 7,
         chat_template_kwargs: { enable_thinking: false },
         response_format: { type: "json_schema", json_schema: { strict: true } },
       },
@@ -17,6 +17,7 @@ describe("Qwen dream planner", () => {
     expect(JSON.stringify(input)).toContain("dream_transcript");
     expect(JSON.stringify(input)).toContain("/no_think");
     expect(JSON.stringify(input)).toContain('"enum":["awe","calm"');
+    expect(JSON.stringify(input)).toContain("[1..6]");
   });
 
   it("serializes transcript delimiters as JSON data", () => {
@@ -24,13 +25,34 @@ describe("Qwen dream planner", () => {
     const input = messageInputSchema.parse(buildDreamPlanInput(transcript));
     const payload = input.body.messages[1].content.replace("\n/no_think", "");
     expect(input.body.messages).toHaveLength(2);
-    expect(JSON.parse(payload)).toEqual({ dream_transcript: transcript });
+    expect(JSON.parse(payload)).toEqual({
+      dream_transcript: transcript,
+      has_dream_self: false,
+      visual_style: "dream-cinema",
+    });
+  });
+
+  it("passes trusted Dream Self and style settings outside the transcript", () => {
+    const input = messageInputSchema.parse(buildDreamPlanInput("I crossed a red desert.", {
+      hasDreamSelf: true,
+      visualStyle: "watercolor-memory",
+    }));
+    const payload = input.body.messages[1].content.replace("\n/no_think", "");
+    expect(JSON.parse(payload)).toMatchObject({
+      has_dream_self: true,
+      visual_style: "watercolor-memory",
+    });
   });
 
   it("normalizes the v2.24.0 OpenAI-compatible output", () => {
     const plan = normalizeDreamPlanOutput(vllmOutput(JSON.stringify(validPlan())));
     expect(plan.title).toBe("Cloud Train");
     expect(plan.scenes).toHaveLength(3);
+  });
+
+  it.each([1, 6])("normalizes a valid %i-scene plan", (sceneCount) => {
+    const plan = normalizeDreamPlanOutput(vllmOutput(JSON.stringify(validPlan(sceneCount))));
+    expect(plan.scenes).toHaveLength(sceneCount);
   });
 
   it("rejects prose around JSON and unknown response shapes", () => {
@@ -57,11 +79,12 @@ function vllmOutput(content: string): unknown {
   }];
 }
 
-function validPlan(): Record<string, unknown> {
+function validPlan(sceneCount = 3): Record<string, unknown> {
   const scene = { caption: "Cloud station", prompt: "A cloud station, indigo watercolor" };
   return {
     title: "Cloud Train", summary: "A train crosses the sky.", mood: ["wonder"],
     motifs: [{ label: "train", kind: "object" }],
-    visual_bible: "Indigo watercolor, one red-coated traveler.", scenes: [scene, scene, scene],
+    visual_bible: "Indigo watercolor, one red-coated traveler.",
+    scenes: Array.from({ length: sceneCount }, () => scene),
   };
 }

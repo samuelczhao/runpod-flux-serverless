@@ -9,7 +9,7 @@
   request evidence in separate tabs.
 - Confirm a fresh text dream, a branch, and journal navigation in the exact browser
   session used for the presentation.
-- Keep the last successful three-scene story and branch available as fallback evidence.
+- Keep the last successful adaptive story and branch available as fallback evidence.
 - Verify no terminal or browser view exposes API or Hugging Face tokens.
 
 ## Eight-minute core flow
@@ -20,16 +20,18 @@
    contract, cached gated weights, the root Dockerfile, and the completed GitHub build.
 3. **Direct endpoint result — 45 seconds.** Show the red-panda request, Runpod job, and
    generated 1024×1024 image before introducing the product extension.
-4. **User flow — 60 seconds.** Enter a short dream, start generation, and switch to an
-   already-completed story while the live job runs.
-5. **Coherence — 45 seconds.** Show the three scenes and point out the shared palette,
-   character, object, and setting carried from the anchor through Kontext.
+4. **User flow — 75 seconds.** Open “Make it feel like yours,” show the private-photo
+   disclosure and three illustration styles, then enter a short dream. Use a prepared,
+   consented fixture photo for the live call and switch to a completed story while it runs.
+5. **Identity and coherence — 60 seconds.** Show the adaptive number of moments. Point out
+   the same recognizable dreamer plus the shared palette, symbols, and setting.
 6. **Interactive edit — 45 seconds.** Show the red-fox branch comparison and select the
-   preferred scene without regenerating the other two.
+   preferred scene without regenerating the rest of the story.
 7. **Memory over time — 30 seconds.** Open the constellation and show recurring motifs
    connecting two dreams.
 8. **Architecture — 60 seconds.** Use the README diagram: browser, durable workflow,
-   Supabase, Qwen planner, custom FLUX anchor, Kontext continuity/edit.
+   private Supabase identity, Qwen planner, custom FLUX anchor path, and Kontext identity,
+   continuity, and edit paths.
 9. **Reliability — 45 seconds.** Explain persisted endpoint/request identity, workflow
    recovery, ambiguous-submission handling, cancellation, RLS, and the API rate limit.
 10. **Evidence — 30 seconds.** Show typecheck, web tests, 53 worker tests, production
@@ -86,6 +88,16 @@ the maximum independently per stage.
 **Why more than one model?** FLUX creates the visual anchor, Qwen converts a nonlinear
 memory into a strict plan, and Kontext preserves or edits an existing image. Each model
 has one narrow, testable responsibility.
+
+**Why does a photo story start with Kontext instead of the custom endpoint?** The custom
+FLUX worker is text-to-image and remains the required direct endpoint plus the default
+no-photo anchor. Kontext accepts the private reference image, so the identity path uses
+it for every moment. That avoids training on a user photo and keeps deletion simple.
+
+**Why not pass the previous scene and the face?** The selected public endpoint accepts one
+image reference. Reusing the face prioritizes recognizability; the visual bible carries
+palette, clothing, objects, and setting. A multi-reference adapter would be a separate
+quality and privacy evaluation.
 
 **What happens on retries?** The database claims a logical operation before submission.
 Replays reuse the same workflow and provider job. If the submission response is
