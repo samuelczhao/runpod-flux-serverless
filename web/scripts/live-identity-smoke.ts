@@ -30,7 +30,7 @@ const identitySchema = z.object({
 const createdSchema = z.object({ dreamId: z.uuid(), runId: z.string().nullable() }).strict();
 const storySchema = z.object({
   id: z.uuid(), status: z.string(), failedStage: z.string().nullable(),
-  errorCode: z.string().nullable(), visualStyle: z.literal("watercolor-memory"),
+  errorCode: z.string().nullable(),
   scenes: z.array(z.object({
     ordinal: z.number().int(),
     versions: z.array(z.object({
