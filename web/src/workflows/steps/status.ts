@@ -4,7 +4,11 @@ import { providerCostUsd } from "@/lib/domain/cost";
 import { completeImageJob, getGenerationJob, transitionGenerationJob } from "@/lib/database/jobs";
 import type { GenerationJob } from "@/lib/database/schemas";
 import { getSceneVersion } from "@/lib/database/scenes";
-import { downloadProviderPng, storeDreamPng } from "@/lib/database/storage";
+import {
+  downloadProviderPng,
+  ProviderArtifactError,
+  storeDreamPng,
+} from "@/lib/database/storage";
 import { decodeAnchorPng } from "@/lib/runpod/anchor";
 import { normalizeKontextOutput } from "@/lib/runpod/kontext";
 import { getQueueStatus, type QueueStatus } from "@/lib/runpod/queue";
@@ -35,7 +39,8 @@ export async function persistImageStep(jobId: string): Promise<void> {
   if (status.status !== "COMPLETED") throw new Error("Provider image is not complete");
   const parsed = await parseProviderImage(job, status);
   const version = await getSceneVersion(requireVersionId(job));
-  const path = await storeDreamPng(job.user_id, job.dream_id, version.id, await imageBytes(parsed));
+  const bytes = await readProviderImage(job, status, parsed);
+  const path = await storeDreamPng(job.user_id, job.dream_id, version.id, bytes);
   await completeImageJob(job.id, path, parsed.cost.value, parsed.cost.source, queueMetrics(status));
 }
 
@@ -91,6 +96,20 @@ async function imageBytes(parsed: ParsedImage): Promise<Buffer> {
   if (parsed.bytes) return parsed.bytes;
   if (!parsed.imageUrl) throw new Error("Parsed image has no content");
   return downloadProviderPng(parsed.imageUrl);
+}
+
+async function readProviderImage(
+  job: GenerationJob,
+  status: QueueStatus,
+  parsed: ParsedImage,
+): Promise<Buffer> {
+  try {
+    return await imageBytes(parsed);
+  } catch (error: unknown) {
+    if (!(error instanceof ProviderArtifactError)) throw error;
+    await recordInvalidImage(job, status);
+    throw new FatalError("Provider returned an invalid image artifact");
+  }
 }
 
 function isTerminalFailure(status: GenerationJob["status"]): boolean {

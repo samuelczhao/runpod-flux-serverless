@@ -12,4 +12,8 @@ describe("paid submission failures", () => {
     expect(classifySubmissionFailure(new Error("invalid response"))).toBe("SUBMIT_UNKNOWN");
     expect(classifySubmissionFailure(new RunpodHttpError(503))).toBe("SUBMIT_UNKNOWN");
   });
+
+  it.each([408, 429])("keeps HTTP %i submissions available for reconciliation", (status) => {
+    expect(classifySubmissionFailure(new RunpodHttpError(status))).toBe("SUBMIT_UNKNOWN");
+  });
 });
