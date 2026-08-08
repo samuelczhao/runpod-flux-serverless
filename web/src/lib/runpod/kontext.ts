@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const KONTEXT_NEGATIVE_PROMPT = "text, watermark, duplicate person, same person twice, repeated character, extra face, montage, collage, split scene, close-up portrait, photorealistic face, photographic skin, pasted face, distorted face, unnatural anatomy";
+
 const kontextOutputSchema = z.object({
   image_url: z.string().optional(),
   result: z.string().optional(),
@@ -66,7 +68,7 @@ function requireHttpsUrl(value: string): string {
 function kontextParameters(prompt: string, seed: number | undefined): Readonly<Record<string, unknown>> {
   return {
     prompt: z.string().trim().min(1).max(2_000).parse(prompt),
-    negative_prompt: "text, watermark, duplicate person, extra face, distorted face, unnatural anatomy",
+    negative_prompt: KONTEXT_NEGATIVE_PROMPT,
     seed: seed ?? -1,
     num_inference_steps: 28,
     guidance: 2,

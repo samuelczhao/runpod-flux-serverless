@@ -28,7 +28,7 @@ describe("Qwen dream planner", () => {
     expect(JSON.parse(payload)).toEqual({
       dream_transcript: transcript,
       has_dream_self: false,
-      visual_style: "dream-cinema",
+      visual_style: "watercolor-memory",
     });
   });
 
