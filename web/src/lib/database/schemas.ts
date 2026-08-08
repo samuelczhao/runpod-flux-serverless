@@ -22,7 +22,7 @@ export const processingDreamSchema = z.object({
   transcript: z.string().nullable(),
   audio_storage_path: z.string().nullable(),
   audio_mime_type: z.string().nullable(),
-  audio_upload_expires_at: z.iso.datetime().nullable(),
+  audio_upload_expires_at: z.iso.datetime({ offset: true }).nullable(),
   retain_audio: z.boolean(),
   visual_bible: z.string().nullable(),
   plan_hash: z.string().nullable(),
