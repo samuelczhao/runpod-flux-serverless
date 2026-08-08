@@ -1,11 +1,13 @@
 import { FatalError } from "workflow";
 import { getRunpodEnv } from "@/lib/config/env";
 import { providerCostUsd } from "@/lib/domain/cost";
+import { DatabaseOperationError } from "@/lib/database/errors";
 import { completeImageJob, getGenerationJob, transitionGenerationJob } from "@/lib/database/jobs";
 import type { GenerationJob } from "@/lib/database/schemas";
 import { getSceneVersion } from "@/lib/database/scenes";
 import {
   downloadProviderPng,
+  deleteDreamPng,
   ProviderArtifactError,
   storeDreamPng,
 } from "@/lib/database/storage";
@@ -41,7 +43,21 @@ export async function persistImageStep(jobId: string): Promise<void> {
   const version = await getSceneVersion(requireVersionId(job));
   const bytes = await readProviderImage(job, status, parsed);
   const path = await storeDreamPng(job.user_id, job.dream_id, version.id, bytes);
-  await completeImageJob(job.id, path, parsed.cost.value, parsed.cost.source, queueMetrics(status));
+  await completeStoredImage(job, status, parsed, path);
+}
+
+async function completeStoredImage(
+  job: GenerationJob,
+  status: QueueStatus,
+  parsed: ParsedImage,
+  path: string,
+): Promise<void> {
+  try {
+    await completeImageJob(job.id, path, parsed.cost.value, parsed.cost.source, queueMetrics(status));
+  } catch (error: unknown) {
+    if (error instanceof DatabaseOperationError && error.code) await deleteDreamPng(path);
+    throw error;
+  }
 }
 
 async function fetchProviderStatus(job: GenerationJob): Promise<QueueStatus> {

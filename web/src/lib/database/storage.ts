@@ -103,6 +103,11 @@ export async function createDreamImageUrl(path: string): Promise<string> {
   return signedUrlSchema.parse(result.data).signedUrl;
 }
 
+export async function deleteDreamPng(path: string): Promise<void> {
+  const result = await createSupabaseAdminClient().storage.from(IMAGE_BUCKET).remove([path]);
+  throwIfDatabaseError(result.error);
+}
+
 export async function downloadProviderPng(url: string, fetcher: FetchLike = fetch): Promise<Buffer> {
   const response = await fetchProviderArtifact(url, fetcher);
   if (!response.ok) throw downloadError(response.status);
