@@ -38,6 +38,7 @@ type DreamRow = {
   workflow_run_id: string | null;
   workflow_claim_token: string | null;
   workflow_claimed_at: string | null;
+  quota_reserved_at: string | null;
   failed_stage: string | null;
   error_code: string | null;
   retain_audio: boolean;
@@ -65,6 +66,8 @@ type IdentityReferenceRow = {
   upload_expires_at: string | null;
   retention_expires_at: string | null;
   cleanup_due_at: string | null;
+  normalization_claim_token: string | null;
+  normalization_claimed_at: string | null;
   ready_at: string | null;
   deleted_at: string | null;
   created_at: string;
@@ -138,6 +141,7 @@ type DreamQuotaLimitsRow = {
   max_active_per_user: number;
   max_user_hour: number;
   max_global_day: number;
+  max_user_branch_hour: number;
 }
 
 type DreamUserHourlyUsageRow = {
@@ -151,6 +155,30 @@ type DreamGlobalDailyUsageRow = {
   used: number;
 }
 
+type BranchUserHourlyUsageRow = {
+  user_id: string;
+  bucket_start: string;
+  used: number;
+}
+
+type IdentityQuotaLimitsRow = {
+  singleton: boolean;
+  max_user_hour: number;
+  max_global_day: number;
+  updated_at: string;
+}
+
+type IdentityUserHourlyUsageRow = {
+  user_id: string;
+  bucket_start: string;
+  used: number;
+}
+
+type IdentityGlobalDailyUsageRow = {
+  bucket_date: string;
+  used: number;
+}
+
 type DreamInsert = {
   user_id: string;
   input_mode: string;
@@ -160,6 +188,9 @@ type DreamInsert = {
   retain_audio?: boolean;
   identity_reference_id?: string | null;
   visual_style?: VisualStyle;
+  text_operation_key?: string | null;
+  audio_operation_key?: string | null;
+  quota_reserved_at?: string | null;
 }
 
 type SceneVersionInsert = {
@@ -169,6 +200,8 @@ type SceneVersionInsert = {
   parent_version_id?: string | null;
   edit_instruction?: string | null;
   status?: JobStatus;
+  storage_path?: string | null;
+  is_selected?: boolean;
 }
 
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
@@ -193,6 +226,10 @@ export type Database = {
       dream_quota_limits: Table<DreamQuotaLimitsRow>;
       dream_user_hourly_usage: Table<DreamUserHourlyUsageRow>;
       dream_global_daily_usage: Table<DreamGlobalDailyUsageRow>;
+      branch_user_hourly_usage: Table<BranchUserHourlyUsageRow>;
+      identity_quota_limits: Table<IdentityQuotaLimitsRow>;
+      identity_user_hourly_usage: Table<IdentityUserHourlyUsageRow>;
+      identity_global_daily_usage: Table<IdentityGlobalDailyUsageRow>;
     };
     Views: Record<never, never>;
     Functions: {
@@ -279,11 +316,19 @@ export type Database = {
       complete_identity_reference: VoidFunction<{
         p_reference_id: string;
         p_user_id: string;
+        p_claim_token: string;
         p_storage_path: string;
         p_size_bytes: number;
         p_width: number;
         p_height: number;
         p_content_sha256: string;
+      }>;
+      claim_identity_normalization: {
+        Args: { p_reference_id: string; p_user_id: string; p_claim_token: string };
+        Returns: boolean;
+      };
+      release_identity_normalization: VoidFunction<{
+        p_reference_id: string; p_user_id: string; p_claim_token: string;
       }>;
       begin_identity_deletion: {
         Args: { p_reference_id: string; p_user_id: string };
@@ -309,6 +354,10 @@ export type Database = {
           user_id: string;
           cleanup_kind: "source" | "reference" | "tombstone";
         }[];
+      };
+      get_identity_cleanup_health: {
+        Args: Record<never, never>;
+        Returns: { due_count: number; oldest_due_at: string | null }[];
       };
       claim_audio_cleanup_workflow: {
         Args: { p_user_id: string; p_dream_id: string; p_claim_token: string };

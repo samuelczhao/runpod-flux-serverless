@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/identity/[identityId]/complete/route";
 
 const mocks = vi.hoisted(() => ({
+  claim: vi.fn(),
   complete: vi.fn(),
   createUrl: vi.fn(),
   deleteObjects: vi.fn(),
@@ -9,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   getReference: vi.fn(),
   markSourceDeleted: vi.fn(),
   normalize: vi.fn(),
+  release: vi.fn(),
   requireUserId: vi.fn(),
   store: vi.fn(),
 }));
@@ -23,12 +25,14 @@ vi.mock("@/lib/auth/user", () => ({
 }));
 vi.mock("@/lib/database/identity", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/database/identity")>(),
+  claimIdentityNormalization: mocks.claim,
   completeIdentityReference: mocks.complete,
   createIdentityImageUrl: mocks.createUrl,
   deleteIdentityObjects: mocks.deleteObjects,
   downloadIdentitySource: mocks.download,
   getIdentityReference: mocks.getReference,
   markIdentitySourceDeleted: mocks.markSourceDeleted,
+  releaseIdentityNormalization: mocks.release,
   storeNormalizedIdentity: mocks.store,
 }));
 vi.mock("@/lib/images/normalizeIdentity", async (importOriginal) => ({
@@ -39,6 +43,7 @@ vi.mock("@/lib/images/normalizeIdentity", async (importOriginal) => ({
 beforeEach(() => {
   for (const mock of Object.values(mocks)) mock.mockReset();
   mocks.requireUserId.mockResolvedValue("user-1");
+  mocks.claim.mockResolvedValue(true);
   mocks.getReference.mockResolvedValue(reference("PENDING", SOURCE_PATH));
   mocks.download.mockResolvedValue(Buffer.from("source"));
   mocks.normalize.mockResolvedValue({
@@ -49,6 +54,7 @@ beforeEach(() => {
   mocks.deleteObjects.mockResolvedValue(undefined);
   mocks.markSourceDeleted.mockResolvedValue(undefined);
   mocks.createUrl.mockResolvedValue("https://storage.test/signed-preview");
+  mocks.release.mockResolvedValue(undefined);
 });
 
 it("normalizes the upload, commits metadata, and removes the original", async () => {
@@ -56,10 +62,29 @@ it("normalizes the upload, commits metadata, and removes the original", async ()
 
   expect(response.status).toBe(200);
   expect(mocks.complete).toHaveBeenCalledWith(
-    "user-1", IDENTITY_ID, REFERENCE_PATH, expect.objectContaining({ width: 1_024, height: 768 }),
+    "user-1", IDENTITY_ID, expect.any(String), REFERENCE_PATH,
+    expect.objectContaining({ width: 1_024, height: 768 }),
   );
+  const claimToken = mocks.complete.mock.calls[0][2];
+  expect(mocks.claim).toHaveBeenCalledWith("user-1", IDENTITY_ID, claimToken);
+  expect(mocks.release).toHaveBeenCalledWith("user-1", IDENTITY_ID, claimToken);
+  expect(mocks.claim.mock.invocationCallOrder[0]).toBeLessThan(mocks.download.mock.invocationCallOrder[0]);
+  expect(mocks.normalize).toHaveBeenCalledWith(Buffer.from("source"), "image/jpeg");
   expect(mocks.deleteObjects).toHaveBeenCalledWith([SOURCE_PATH]);
   expect(mocks.markSourceDeleted).toHaveBeenCalledWith("user-1", IDENTITY_ID, SOURCE_PATH);
+});
+
+it("does not normalize while another request owns the photo lease", async () => {
+  mocks.claim.mockResolvedValue(false);
+
+  const response = await POST(new Request("https://dreamtrace.test"), context());
+
+  expect(response.status).toBe(409);
+  await expect(response.json()).resolves.toEqual({
+    error: "This photo is already being prepared. Try again in a moment.",
+  });
+  expect(mocks.normalize).not.toHaveBeenCalled();
+  expect(mocks.release).not.toHaveBeenCalled();
 });
 
 it("repairs source cleanup when completion is replayed", async () => {
@@ -81,6 +106,18 @@ it("removes the normalized object when the database commit fails", async () => {
 
   expect(response.status).toBe(503);
   expect(mocks.deleteObjects).toHaveBeenCalledWith([REFERENCE_PATH]);
+  expect(mocks.claim).toHaveBeenCalledTimes(2);
+});
+
+it("does not delete a successor's normalized object after losing the lease", async () => {
+  mocks.claim.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+  mocks.complete.mockRejectedValue(new Error("lease expired"));
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+  const response = await POST(new Request("https://dreamtrace.test"), context());
+
+  expect(response.status).toBe(503);
+  expect(mocks.deleteObjects).not.toHaveBeenCalledWith([REFERENCE_PATH]);
 });
 
 it("preserves the normalized object while a lost completion remains unknown", async () => {
@@ -124,6 +161,7 @@ function reference(status: "PENDING" | "READY", uploadPath: string | null) {
     id: IDENTITY_ID,
     user_id: "user-1",
     status,
+    source_mime_type: "image/jpeg",
     upload_path: uploadPath,
     storage_path: status === "READY" ? REFERENCE_PATH : null,
   };

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { AuthenticationError, requireUserId } from "@/lib/auth/user";
 import {
   beginIdentityDeletion,
+  claimIdentityNormalization,
   completeIdentityDeletion,
   completeIdentityReference,
   createIdentityImageUrl,
@@ -9,6 +10,7 @@ import {
   downloadIdentitySource,
   getIdentityReference,
   markIdentitySourceDeleted,
+  releaseIdentityNormalization,
   storeNormalizedIdentity,
   type IdentityReference,
 } from "@/lib/database/identity";
@@ -25,6 +27,8 @@ interface RouteContext {
 export async function POST(_request: Request, context: RouteContext): Promise<Response> {
   let identityId: string | null = null;
   let userId: string | null = null;
+  let claimToken: string | null = null;
+  let claimAcquired = false;
   try {
     identityId = z.uuid().parse((await context.params).identityId);
     userId = await requireUserId();
@@ -33,16 +37,23 @@ export async function POST(_request: Request, context: RouteContext): Promise<Re
     if (reference.status !== "PENDING" || !reference.upload_path) {
       return Response.json({ error: "This photo upload is no longer active" }, { status: 409 });
     }
+    claimToken = crypto.randomUUID();
+    claimAcquired = await claimIdentityNormalization(userId, identityId, claimToken);
+    if (!claimAcquired) {
+      return completionInProgress(userId, identityId);
+    }
     const normalized = await normalizeIdentityImage(
       await downloadIdentitySource(reference.upload_path),
       reference.source_mime_type,
     );
     const path = await storeNormalizedIdentity(userId, identityId, normalized);
     try {
-      await completeIdentityReference(userId, identityId, path, normalized);
+      await completeIdentityReference(userId, identityId, claimToken, path, normalized);
     } catch (error: unknown) {
       const reconciliation = await reconcileCompletion(userId, identityId, path, normalized);
-      if (reconciliation === "rejected") await deleteIdentityObjects([path]);
+      if (reconciliation === "rejected") {
+        await discardRejectedNormalized(userId, identityId, claimToken, path);
+      }
       if (reconciliation !== "committed") throw error;
     }
     await deleteSource(userId, identityId, reference.upload_path);
@@ -59,6 +70,38 @@ export async function POST(_request: Request, context: RouteContext): Promise<Re
     }
     console.error("Dream Self completion failed", safeError(error));
     return errorResponse("Your photo could not be prepared", 503);
+  } finally {
+    if (claimAcquired) await releaseClaim(userId, identityId, claimToken);
+  }
+}
+
+async function discardRejectedNormalized(
+  userId: string,
+  identityId: string,
+  claimToken: string,
+  path: string,
+): Promise<void> {
+  if (await claimIdentityNormalization(userId, identityId, claimToken)) {
+    await deleteIdentityObjects([path]);
+  }
+}
+
+async function completionInProgress(userId: string, identityId: string): Promise<Response> {
+  const reference = await getIdentityReference(userId, identityId);
+  if (reference?.status === "READY") return completeReplay(reference);
+  return errorResponse("This photo is already being prepared. Try again in a moment.", 409);
+}
+
+async function releaseClaim(
+  userId: string | null,
+  identityId: string | null,
+  claimToken: string | null,
+): Promise<void> {
+  if (!userId || !identityId || !claimToken) return;
+  try {
+    await releaseIdentityNormalization(userId, identityId, claimToken);
+  } catch (error: unknown) {
+    console.error("Dream Self normalization release failed", safeError(error));
   }
 }
 

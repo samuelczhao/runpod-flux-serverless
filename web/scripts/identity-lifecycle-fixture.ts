@@ -63,6 +63,18 @@ async function completeIdentity(
   identityId: string,
   identityPaths: string[],
 ): Promise<void> {
+  const claimToken = crypto.randomUUID();
+  const competingToken = crypto.randomUUID();
+  const claimed = await admin.rpc("claim_identity_normalization", {
+    p_reference_id: identityId, p_user_id: userId, p_claim_token: claimToken,
+  });
+  assertNoError(claimed.error);
+  if (claimed.data !== true) throw new Error("identity normalization claim was not acquired");
+  const competing = await admin.rpc("claim_identity_normalization", {
+    p_reference_id: identityId, p_user_id: userId, p_claim_token: competingToken,
+  });
+  assertNoError(competing.error);
+  if (competing.data !== false) throw new Error("competing identity normalization claim was accepted");
   const path = `${userId}/identity/${identityId}/reference.png`;
   identityPaths.push(path);
   const upload = await admin.storage.from("identity-references").upload(path, ONE_PIXEL_PNG, {
@@ -72,6 +84,7 @@ async function completeIdentity(
   const result = await admin.rpc("complete_identity_reference", {
     p_reference_id: identityId,
     p_user_id: userId,
+    p_claim_token: claimToken,
     p_storage_path: path,
     p_size_bytes: ONE_PIXEL_PNG.length,
     p_width: 256,

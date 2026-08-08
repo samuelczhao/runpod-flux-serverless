@@ -1,12 +1,18 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { StorageApiError } from "@supabase/supabase-js";
-import { cleanupIdentityCandidates, prepareIdentityUpload } from "@/lib/database/identity";
+import {
+  cleanupIdentityCandidates,
+  prepareIdentityUpload,
+  storeNormalizedIdentity,
+} from "@/lib/database/identity";
 
 const mocks = vi.hoisted(() => ({
   createSignedUploadUrl: vi.fn(),
+  download: vi.fn(),
   exists: vi.fn(),
   remove: vi.fn(),
   rpc: vi.fn(),
+  upload: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -15,8 +21,10 @@ vi.mock("@/lib/supabase/admin", () => ({
     rpc: mocks.rpc,
     storage: { from: () => ({
       createSignedUploadUrl: mocks.createSignedUploadUrl,
+      download: mocks.download,
       exists: mocks.exists,
       remove: mocks.remove,
+      upload: mocks.upload,
     }) },
   }),
 }));
@@ -81,6 +89,31 @@ it("resumes from an already stored or completed photo without overwriting", asyn
   });
 });
 
+it("reuses an identical normalized object without overwriting it", async () => {
+  const bytes = Buffer.from("normalized");
+  mocks.upload.mockResolvedValue({ data: null, error: { message: "already exists" } });
+  mocks.download.mockResolvedValue({ data: new Blob([bytes]), error: null });
+
+  await expect(storeNormalizedIdentity(USER_ID, IDENTITY_ID, {
+    bytes, width: 1_024, height: 768, sha256: "a".repeat(64),
+  })).resolves.toBe(`${USER_ID}/identity/${IDENTITY_ID}/reference.png`);
+
+  expect(mocks.upload).toHaveBeenCalledWith(
+    `${USER_ID}/identity/${IDENTITY_ID}/reference.png`,
+    bytes,
+    { contentType: "image/png", upsert: false },
+  );
+});
+
+it("rejects a conflicting normalized object instead of overwriting it", async () => {
+  mocks.upload.mockResolvedValue({ data: null, error: { message: "already exists" } });
+  mocks.download.mockResolvedValue({ data: new Blob([Buffer.from("other")]), error: null });
+
+  await expect(storeNormalizedIdentity(USER_ID, IDENTITY_ID, {
+    bytes: Buffer.from("normalized"), width: 1_024, height: 768, sha256: "a".repeat(64),
+  })).rejects.toThrow("already exists");
+});
+
 it("rechecks the deterministic path after a deleted-reference race", async () => {
   mocks.rpc
     .mockResolvedValueOnce({ data: [{
@@ -88,14 +121,19 @@ it("rechecks the deterministic path after a deleted-reference race", async () =>
       user_id: USER_ID,
       cleanup_kind: "tombstone",
     }], error: null })
-    .mockResolvedValueOnce({ data: null, error: null });
+    .mockResolvedValueOnce({ data: null, error: null })
+    .mockResolvedValueOnce({
+      data: [{ due_count: 0, oldest_due_at: null }], error: null,
+    });
   mocks.remove.mockResolvedValue({ data: [], error: null });
 
-  await expect(cleanupIdentityCandidates(50)).resolves.toEqual({ inspected: 1, failed: 0 });
+  await expect(cleanupIdentityCandidates(50)).resolves.toEqual({
+    inspected: 1, failed: 0, remaining: 0, oldestDueAt: null,
+  });
   expect(mocks.remove).toHaveBeenCalledWith([
     `${USER_ID}/identity/${IDENTITY_ID}/reference.png`,
   ]);
-  expect(mocks.rpc).toHaveBeenLastCalledWith("complete_identity_tombstone_cleanup", {
+  expect(mocks.rpc).toHaveBeenNthCalledWith(2, "complete_identity_tombstone_cleanup", {
     p_reference_id: IDENTITY_ID,
     p_user_id: USER_ID,
   });

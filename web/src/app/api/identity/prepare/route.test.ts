@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/identity/prepare/route";
+import { DatabaseOperationError } from "@/lib/database/errors";
 
 const mocks = vi.hoisted(() => ({ prepare: vi.fn(), requireUserId: vi.fn() }));
 const OPERATION_ID = "ff5f82ba-3c73-4b3d-bd85-39004f7a645f";
@@ -40,6 +41,18 @@ it("rejects missing consent without allocating storage", async () => {
 
   expect(response.status).toBe(400);
   expect(mocks.prepare).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["P4295", "hourly photo limit"],
+  ["P4296", "today’s photo limit"],
+])("returns a useful response for photo quota %s", async (code, message) => {
+  mocks.prepare.mockRejectedValue(new DatabaseOperationError({ code, message: "quota" }));
+
+  const response = await POST(request({}));
+
+  expect(response.status).toBe(429);
+  expect((await response.json()).error).toContain(message);
 });
 
 function request(overrides: Readonly<Record<string, unknown>>): Request {

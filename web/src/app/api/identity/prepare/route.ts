@@ -9,6 +9,7 @@ import {
   identityMimeTypeSchema,
   MAX_IDENTITY_IMAGE_BYTES,
 } from "@/lib/domain/identity";
+import { quotaResponse } from "@/lib/http/quotaResponse";
 
 const requestSchema = z.object({
   operationId: z.uuid(),
@@ -31,6 +32,8 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error: unknown) {
     if (error instanceof z.ZodError) return errorResponse("Choose a JPEG, PNG, or WebP under 8 MB", 400);
     if (error instanceof AuthenticationError) return errorResponse(error.message, 401);
+    const quota = quotaResponse(error);
+    if (quota) return quota;
     if (error instanceof IdentityPreparationError) return errorResponse(error.message, 409);
     console.error("Dream Self upload preparation failed", safeError(error));
     return errorResponse("Your photo upload could not be prepared", 503);
