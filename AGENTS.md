@@ -2,7 +2,9 @@
 
 ## Known Pitfalls
 
-- The Vercel CLI is not installed in the project or shell path; invoke it with `npx vercel --cwd web`, not bare `vercel` or `pnpm exec vercel`.
+- The Vercel CLI is not installed in the shell path. Invoke it with `npx vercel` from
+  the repository root; the linked project already sets `web` as its Root Directory.
+  Passing `--cwd web` would target `web/web`.
 
 - Match the validation scopes in `.github/workflows/ci.yml`. Mypy checks `handler.py`,
   `src`, and `scripts`; pytest and Ruff cover `tests`. Do not expand the mypy scope
@@ -31,8 +33,12 @@
   `/api/dreams/{dreamId}/transcript`; transcription intentionally stops in `PLANNING`
   so a user can correct Whisper output before image-generation spend begins.
 - Planner cold starts can exceed the ten-minute client poll window even with FlashBoot.
-  Prewarm before a live demo, keep one-worker cost bounds, and never retry while an
-  existing worker is still initializing.
+  Keep one active A4000-class worker during a live demo and never retry while an existing
+  worker is initializing. A primary 4090 allocation was throttled by host capacity.
+- Supabase signed-upload responses contain provider-only fields such as `signedUrl`.
+  Return an explicit public shape; passthrough schemas can break strict browser clients.
+- PostgreSQL `timestamptz` values use offsets such as `+00:00`. Use
+  `z.iso.datetime({ offset: true })` at database boundaries instead of assuming `Z`.
 - Runpod endpoint responses can embed worker environment secrets when
   `includeWorkers=true`. Project only an explicit safe-field allowlist with `jq`; never
   print the complete worker object or its `env` field.

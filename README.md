@@ -6,10 +6,12 @@ then turns it into a product: describe or record a dream, receive a coherent thr
 visual story, revise a scene without regenerating the rest, and see recurring symbols
 connect across a private journal.
 
-Status: the custom FLUX worker, Qwen planner, Kontext generation, Supabase schema, and
-full DreamTrace workflow have been validated live. The web app passes production build
-locally. The Vercel project and Production environment are configured; public hosting
-awaits the reviewed release commit.
+Production: [dreamtrace.vercel.app](https://dreamtrace.vercel.app)
+
+Status: the custom FLUX worker, Qwen planner, Kontext generation, Whisper transcription,
+Supabase schema, and full DreamTrace workflow are deployed. Fresh Production acceptance
+covered text, voice, two three-scene stories, a coherent branch, replay safety, private
+storage, and audio-cleanup recovery.
 
 ## Product architecture
 
@@ -21,6 +23,7 @@ flowchart LR
     D --> E[Runpod Qwen planner]
     D --> F[Custom FLUX.1-dev endpoint]
     D --> G[Runpod Kontext endpoint]
+    D --> K[Runpod Whisper endpoint]
     G --> H[Three coherent scenes]
     H --> I[Selectable scene branches]
     C --> J[Recurring-motif constellation]
@@ -155,7 +158,7 @@ pnpm lint
 pnpm build
 ```
 
-The web suite currently contains 125 GPU-free unit tests plus an opt-in linked-database
+The web suite currently contains 127 GPU-free unit tests plus an opt-in linked-database
 recovery test. The database fixture verifies idempotent audio preparation, atomic branch
 recovery, duplicate workflow claims, audio format binding, NULL identity guards,
 completion, and cross-user RLS isolation, then deletes its anonymous users and
@@ -192,6 +195,7 @@ before writing the file.
 - [Live presentation runbook](docs/PRESENTATION.md)
 - [DreamTrace product runbook](docs/DREAMTRACE.md)
 - [DreamTrace web deployment](docs/WEB_DEPLOYMENT.md)
+- [Production acceptance evidence](docs/EVIDENCE.md)
 
 ## Repository map
 

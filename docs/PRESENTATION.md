@@ -3,8 +3,8 @@
 ## Before the call
 
 - Confirm credits and endpoint health.
-- Keep Max workers at 1. Warm only the endpoint needed for the live path; return Active
-  workers to 0 afterward.
+- Keep Max workers at 1. Confirm one active worker on the owned planner, FLUX, and
+  Whisper endpoints; Kontext is a Runpod-managed model endpoint.
 - Open the app, one completed two-dream journal, the Runpod endpoint pages, and redacted
   request evidence in separate tabs.
 - Confirm a fresh text dream, a branch, and journal navigation in the exact browser
@@ -30,7 +30,7 @@
    contract, cached gated weights, GitHub build, and the direct red-panda output.
 8. **Reliability — 60 seconds.** Explain persisted endpoint/request identity, workflow
    claims, ambiguous-submission recovery, cancellation, RLS, and scale-to-zero.
-9. **Evidence — 30 seconds.** Show typecheck, 125 web tests, 53 worker tests, production
+9. **Evidence — 30 seconds.** Show typecheck, 127 web tests, 53 worker tests, production
    build, schema lint, live database recovery, and measured Runpod jobs.
 10. **Return to outcome — 15 seconds.** Refresh the live dream if ready; otherwise keep
     the fallback story visible and show the queued/running request honestly.
@@ -53,8 +53,8 @@ uv run python scripts/invoke.py --output artifacts/live-demo.png
 - **Cold worker:** narrate the initialization logs and use the async request.
 - **FLUX GPU unavailable:** show the queued state and the three enabled H100 variants.
 - **Planner cold or throttled:** show endpoint health, do not submit a duplicate, and use
-  the prepared journal. Prewarm it before the call and temporarily use a 600-second idle
-  window; the submission default remains five seconds with a one-worker cost ceiling.
+  the prepared journal. The presentation configuration keeps one A4000-class worker
+  active with a one-worker ceiling because a primary 4090 allocation throttled.
 - **Build regression:** roll back from Runpod's Builds tab and explain the release gate.
 - **Live API issue:** show the last successful Runpod job, redacted JSON, image, and exact
   commit/release used. Never substitute an unverified claim.
@@ -76,9 +76,10 @@ keeps the reference BF16 pipeline on one GPU without offload or quantization tra
 **Why base64?** It is the smallest complete solution for a single bounded image. At
 production volume, measure payloads and return an expiring object-store URL.
 
-**How does it scale?** Runpod queues jobs and can add workers. This evaluation caps Max
-workers at 1 for predictable spend; increasing it is an endpoint setting, but requires a
-load and cost test first.
+**How does it scale?** Runpod queues jobs and can add workers. This evaluation caps each
+owned endpoint at one worker because the workflow is intentionally sequential. Active
+workers remove demo cold starts; a concurrent product load test would justify raising
+the maximum independently per stage.
 
 **Why more than one model?** FLUX creates the visual anchor, Qwen converts a nonlinear
 memory into a strict plan, and Kontext preserves or edits an existing image. Each model
