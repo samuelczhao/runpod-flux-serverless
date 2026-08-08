@@ -17,8 +17,15 @@ describe("dream plan contract", () => {
     expect(dreamPlanSchema.safeParse({ ...validPlan(), diagnosis: "prophecy" }).success).toBe(false);
   });
 
-  it("rejects numeric placeholders as moods", () => {
+  it("rejects malformed and unsupported moods", () => {
     expect(dreamPlanSchema.safeParse({ ...validPlan(), mood: ["4"] }).success).toBe(false);
+    expect(dreamPlanSchema.safeParse({ ...validPlan(), mood: ["w"] }).success).toBe(false);
+    expect(dreamPlanSchema.safeParse({ ...validPlan(), mood: ["sleepy"] }).success).toBe(false);
+  });
+
+  it("limits the planner to three presentation-friendly moods", () => {
+    const moods = ["wonder", "calm", "awe", "mystery"];
+    expect(dreamPlanSchema.safeParse({ ...validPlan(), mood: moods }).success).toBe(false);
   });
 });
 

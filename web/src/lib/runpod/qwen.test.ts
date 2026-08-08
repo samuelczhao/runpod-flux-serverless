@@ -16,6 +16,7 @@ describe("Qwen dream planner", () => {
     expect(JSON.stringify(input)).toContain("untrusted data");
     expect(JSON.stringify(input)).toContain("dream_transcript");
     expect(JSON.stringify(input)).toContain("/no_think");
+    expect(JSON.stringify(input)).toContain('"enum":["awe","calm"');
   });
 
   it("serializes transcript delimiters as JSON data", () => {
@@ -35,6 +36,11 @@ describe("Qwen dream planner", () => {
   it("rejects prose around JSON and unknown response shapes", () => {
     expect(() => normalizeDreamPlanOutput(vllmOutput(`plan: ${JSON.stringify(validPlan())}`))).toThrow();
     expect(() => normalizeDreamPlanOutput({ choices: [] })).toThrow();
+  });
+
+  it("rejects one-letter mood output from the constrained planner", () => {
+    const output = vllmOutput(JSON.stringify({ ...validPlan(), mood: ["w", "a", "s"] }));
+    expect(() => normalizeDreamPlanOutput(output)).toThrow();
   });
 });
 
