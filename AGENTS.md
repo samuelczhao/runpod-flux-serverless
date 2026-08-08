@@ -11,3 +11,13 @@
   on platform-specific editable-install behavior.
 - `next typegen && tsc --noEmit` creates `web/tsconfig.tsbuildinfo`; keep incremental
   compiler caches ignored and review staged generated files before committing.
+- Keep provider-decoding catches narrower than database persistence; a broad catch
+  can misclassify a transient database failure as invalid paid-provider output.
+- Verify prompt-injection boundaries by parsing the structured envelope; escaped
+  text searches do not prove that user data stayed inside a single message field.
+- Run remote migration and schema-lint commands separately so each result remains
+  attributable if the migration fails or prompts unexpectedly.
+- Use the checked demo-seed CLI for multi-step paid workflows; long inline shell
+  orchestration is too typo-prone and can lose an anonymous session after creation.
+- Check that the Docker CLI is available before local image verification. This Mac
+  session may rely on Runpod and GitHub CI builds instead of a local Docker daemon.
