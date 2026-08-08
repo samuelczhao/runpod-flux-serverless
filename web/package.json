@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "lint": "eslint . --max-warnings=0",
     "demo:seed": "node scripts/live-demo-smoke.ts",
+    "demo:voice": "node scripts/live-voice-smoke.ts",
     "test:db:branch-recovery": "node scripts/verify-branch-recovery.ts"
   },
   "dependencies": {

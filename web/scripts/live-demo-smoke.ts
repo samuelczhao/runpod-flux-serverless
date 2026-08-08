@@ -1,10 +1,10 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
+import { appRequest, createLiveContext, type LiveAppContext } from "./live-smoke-context.ts";
 
 const POLL_INTERVAL_MS = 3_000;
 const DREAM_TIMEOUT_MS = 45 * 60 * 1_000;
 const BRANCH_TIMEOUT_MS = 15 * 60 * 1_000;
-const MAX_COOKIE_BYTES = 3_180;
 
 const envSchema = z.object({
   DREAMTRACE_DEMO_SEED: z.literal("1"),
@@ -26,17 +26,15 @@ const storySchema = z.object({
 }).passthrough();
 const branchSchema = z.object({ versionId: z.uuid(), runId: z.string().nullable() }).strict();
 
-type SmokeEnv = z.infer<typeof envSchema>;
 type Story = z.infer<typeof storySchema>;
-
-interface AppContext {
-  readonly baseUrl: string;
-  readonly cookie: string;
-}
 
 async function main(): Promise<void> {
   const env = envSchema.parse(process.env);
-  const context = await createContext(env);
+  const context = await createLiveContext({
+    baseUrl: env.DREAMTRACE_BASE_URL,
+    supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+    publishableKey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  });
   const first = await createDream(context, FIRST_DREAM);
   const firstStory = await waitForDream(context, first.dreamId, "dream_one");
   const branchId = await branchSecondScene(context, firstStory);
@@ -45,16 +43,7 @@ async function main(): Promise<void> {
   console.log(`demo_ready dream_one=${first.dreamId} dream_two=${second.dreamId} branch=${branchId}`);
 }
 
-async function createContext(env: SmokeEnv): Promise<AppContext> {
-  const session = await requestJson(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/signup`, {
-    method: "POST", headers: authHeaders(env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
-    body: JSON.stringify({ data: {} }),
-  });
-  const cookie = sessionCookie(env.NEXT_PUBLIC_SUPABASE_URL, session);
-  return { baseUrl: env.DREAMTRACE_BASE_URL.replace(/\/$/, ""), cookie };
-}
-
-async function createDream(context: AppContext, transcript: string) {
+async function createDream(context: LiveAppContext, transcript: string) {
   const payload = await appRequest(context, "/api/dreams", {
     method: "POST", body: JSON.stringify({ transcript }),
   });
@@ -63,7 +52,7 @@ async function createDream(context: AppContext, transcript: string) {
   return created;
 }
 
-async function waitForDream(context: AppContext, dreamId: string, label: string): Promise<Story> {
+async function waitForDream(context: LiveAppContext, dreamId: string, label: string): Promise<Story> {
   let previous = "";
   const deadline = Date.now() + DREAM_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -77,7 +66,7 @@ async function waitForDream(context: AppContext, dreamId: string, label: string)
   throw new Error(`${label} timed out`);
 }
 
-async function branchSecondScene(context: AppContext, story: Story): Promise<string> {
+async function branchSecondScene(context: LiveAppContext, story: Story): Promise<string> {
   const scene = story.scenes.find((candidate) => candidate.ordinal === 2);
   if (!scene?.versionId) throw new Error("Second scene has no selected version");
   const request = branchRequest(story.id, scene.versionId);
@@ -90,7 +79,7 @@ async function branchSecondScene(context: AppContext, story: Story): Promise<str
 }
 
 async function startBranchTwice(
-  context: AppContext,
+  context: LiveAppContext,
   sceneId: string,
   request: Readonly<Record<string, string>>,
 ): Promise<z.infer<typeof branchSchema>> {
@@ -105,7 +94,7 @@ async function startBranchTwice(
   return branch;
 }
 
-async function waitForBranch(context: AppContext, dreamId: string, versionId: string): Promise<void> {
+async function waitForBranch(context: LiveAppContext, dreamId: string, versionId: string): Promise<void> {
   const deadline = Date.now() + BRANCH_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const story = storySchema.parse(await appRequest(context, `/api/dreams/${dreamId}`));
@@ -120,7 +109,7 @@ async function waitForBranch(context: AppContext, dreamId: string, versionId: st
 }
 
 async function selectBranch(
-  context: AppContext,
+  context: LiveAppContext,
   sceneId: string,
   expectedVersionId: string,
   nextVersionId: string,
@@ -154,7 +143,7 @@ function assertReadyStory(story: Story): Story {
 }
 
 async function assertBranchSelected(
-  context: AppContext,
+  context: LiveAppContext,
   dreamId: string,
   sceneId: string,
   versionId: string,
@@ -163,31 +152,6 @@ async function assertBranchSelected(
   const scene = story.scenes.find((candidate) => candidate.id === sceneId);
   const selected = scene?.versions.find((version) => version.isSelected);
   if (selected?.id !== versionId) throw new Error("Selected branch did not persist");
-}
-
-async function appRequest(context: AppContext, path: string, init: RequestInit = {}): Promise<unknown> {
-  return requestJson(`${context.baseUrl}${path}`, {
-    ...init, headers: { "Content-Type": "application/json", Cookie: context.cookie, ...init.headers },
-  });
-}
-
-async function requestJson(url: string, init: RequestInit): Promise<unknown> {
-  const response = await fetch(url, init);
-  if (!response.ok) throw new Error(`Request failed with HTTP ${response.status}`);
-  return response.json() as Promise<unknown>;
-}
-
-function sessionCookie(supabaseUrl: string, value: unknown): string {
-  const session = z.object({ access_token: z.string(), refresh_token: z.string(), user: z.object({ id: z.uuid() }) })
-    .passthrough().parse(value);
-  const encoded = `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`;
-  if (encoded.length > MAX_COOKIE_BYTES) throw new Error("Supabase session requires chunked cookies");
-  const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
-  return `sb-${projectRef}-auth-token=${encoded}`;
-}
-
-function authHeaders(apiKey: string): Readonly<Record<string, string>> {
-  return { apikey: apiKey, "Content-Type": "application/json" };
 }
 
 const FIRST_DREAM = "I rode a silver train toward a moonlit lake while a red fox conductor guarded a brass key. At the shore the brass key opened a glass observatory, and inside the red fox pointed to a silver train circling the moon like a constellation.";

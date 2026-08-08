@@ -31,7 +31,8 @@ export async function createDreamAudioUpload(
   const result = await createSupabaseAdminClient().storage.from(AUDIO_BUCKET)
     .createSignedUploadUrl(path, { upsert: false });
   throwIfDatabaseError(result.error);
-  return signedUploadSchema.parse(result.data);
+  const upload = signedUploadSchema.parse(result.data);
+  return { path: upload.path, token: upload.token };
 }
 
 export async function createDreamAudioUrl(path: string): Promise<string> {
