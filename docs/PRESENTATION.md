@@ -34,8 +34,9 @@
    continuity, and edit paths.
 9. **Reliability — 45 seconds.** Explain persisted endpoint/request identity, workflow
    recovery, ambiguous-submission handling, cancellation, RLS, and the API rate limit.
-10. **Evidence — 30 seconds.** Show typecheck, web tests, 53 worker tests, production
-   build, schema lint, live database recovery, and measured Runpod jobs.
+10. **Evidence — 30 seconds.** Show typecheck, 208 web tests, 53 worker tests, Production
+   build, schema lint, live database recovery, one-/six-scene boundaries, and measured
+   Runpod jobs.
 11. **Return to outcome — 15 seconds.** Refresh the live dream if ready; otherwise keep
     the fallback story visible and show the queued/running request honestly.
 
@@ -107,6 +108,7 @@ ambiguous, DreamTrace stops rather than risking a second paid image.
 isolation. A production release would let the user link that identity to a permanent
 account before cross-device access.
 
-**What would you improve next?** Add a small reconciliation dashboard for uncertain
-cancellations, then let users link anonymous journals to permanent accounts. After
-measuring real usage, evaluate planner/FLUX quantization separately.
+**What would you improve next?** Add completed-journal deletion and retention controls,
+then a small reconciliation dashboard for uncertain cancellations and an account-linking
+flow for cross-device journals. After measuring real usage, evaluate planner/FLUX
+quantization separately.
