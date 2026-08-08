@@ -31,7 +31,7 @@ it("uses the client operation ID to prepare and start a text dream", async () =>
     OPERATION_ID,
     "A moonlit library under water",
     null,
-    "dream-cinema",
+    "watercolor-memory",
   );
   expect(mocks.start).toHaveBeenCalledWith(DREAM_ID, USER_ID);
   await expect(response.json()).resolves.toEqual({ dreamId: DREAM_ID, runId: "run-1" });

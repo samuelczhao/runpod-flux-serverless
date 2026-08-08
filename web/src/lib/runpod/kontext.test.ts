@@ -28,6 +28,12 @@ describe("Kontext contract", () => {
     });
   });
 
+  it("discourages portrait lock and repeated dreamers", () => {
+    const input = buildKontextInput({ prompt: "Keep the traveler", imageUrl: "https://images.test/a.png" });
+    expect(input.negative_prompt).toContain("same person twice");
+    expect(input.negative_prompt).toContain("photorealistic face");
+  });
+
   it("shares inference knobs with the stable request identity", () => {
     const request = buildKontextInput({ prompt: "Keep the traveler", imageUrl: "https://images.test/a.png", seed: 7 });
     const identity = buildKontextRequestIdentity({

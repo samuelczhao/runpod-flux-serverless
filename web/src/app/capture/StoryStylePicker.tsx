@@ -8,8 +8,8 @@ const STYLES: readonly {
   readonly name: string;
   readonly description: string;
 }[] = [
-  { id: "dream-cinema", name: "Dream cinema", description: "Luminous, painterly, and emotionally grounded" },
   { id: "watercolor-memory", name: "Watercolor memory", description: "Soft washes, pencil detail, and handmade warmth" },
+  { id: "dream-cinema", name: "Dream cinema", description: "Luminous, painterly, and emotionally grounded" },
   { id: "graphic-surreal", name: "Graphic surreal", description: "Bold symbols, rich color, and editorial shapes" },
 ];
 

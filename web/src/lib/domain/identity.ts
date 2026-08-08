@@ -35,10 +35,10 @@ export interface DreamCaptureOptions {
   readonly visualStyle: VisualStyle;
 }
 
-export const DEFAULT_VISUAL_STYLE: VisualStyle = "dream-cinema";
+export const DEFAULT_VISUAL_STYLE: VisualStyle = "watercolor-memory";
 
 export const VISUAL_STYLE_PROMPTS: Readonly<Record<VisualStyle, string>> = {
   "dream-cinema": "Luminous cinematic painted realism, polished storybook illustration, natural facial proportions, soft brush texture, atmospheric depth, restrained dreamlike colors, subtle paper grain",
-  "watercolor-memory": "Expressive watercolor storybook illustration, translucent washes, colored-pencil detail, handmade paper texture, gentle edges, luminous natural light",
+  "watercolor-memory": "Hand-painted watercolor storybook illustration, simplified yet recognizable facial likeness, translucent pigment blooms, dry-brush edges, colored-pencil contours, visible cotton-paper texture, gentle natural light, soft handmade imperfections",
   "graphic-surreal": "Editorial surrealist illustration, bold symbolic shapes, crisp recognizable facial landmarks, jewel-toned palette, elegant negative space, tactile print texture",
 };

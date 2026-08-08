@@ -70,13 +70,13 @@ it("starts a fresh operation when the selected style changes before retry", asyn
 
   await uploadDreamRecording(harness.recorder, harness.onComplete, {
     identityReferenceId: null,
-    visualStyle: "watercolor-memory",
+    visualStyle: "dream-cinema",
   });
 
   const prepareCall = vi.mocked(fetch).mock.calls[0];
   expect(JSON.parse(String((prepareCall[1] as RequestInit).body))).toMatchObject({
     operationId: RESTARTED_OPERATION_ID,
-    visualStyle: "watercolor-memory",
+    visualStyle: "dream-cinema",
   });
   expect(harness.completedDreamId).toBe(fresh.dreamId);
 });
