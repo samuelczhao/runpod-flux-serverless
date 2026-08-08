@@ -339,7 +339,11 @@ async function claimWorkflow(admin: AdminClient, fixture: Fixture, token: string
 }
 
 async function assertForeignVersionHidden(env: Env, admin: AdminClient, versionId: string): Promise<void> {
-  const client = createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  const client = createClient<Database>(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
   const auth = await client.auth.signInAnonymously();
   assertNoError(auth.error);
   if (!auth.data.user) throw new Error("Foreign anonymous user creation returned no user");
