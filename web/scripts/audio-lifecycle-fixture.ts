@@ -16,7 +16,7 @@ export async function assertAudioPreparation(
   await assertMimeConflict(admin, args);
   await assertNullOperationRejected(env, userId);
   await assertNullMimeRejected(env, userId);
-  await assertTerminalReplayRejected(admin, dreamId, args);
+  await assertTerminalReplayStable(admin, dreamId, args);
   await assertExpiredDraftCleanup(env, admin, userId);
   await assertCleanupOwnership(env, admin, userId);
   await assertStaleProcessingExpires(admin, userId);
@@ -64,15 +64,32 @@ async function assertNullOperationRejected(env: Env, userId: string): Promise<vo
   await expectAudioRpcFailure(env, "prepare_audio_dream", body);
 }
 
-async function assertTerminalReplayRejected(
+async function assertTerminalReplayStable(
   admin: AdminClient,
   dreamId: string,
   args: ReturnType<typeof audioPreparationArgs>,
 ): Promise<void> {
   const updated = await admin.from("dreams").update({ status: "DELETING" }).eq("id", dreamId);
   assertNoError(updated.error);
+  const before = await readTerminalPreparation(admin, dreamId);
   const replay = await admin.rpc("prepare_audio_dream", args);
-  if (!replay.error) throw new Error("Audio preparation replayed after leaving DRAFT");
+  assertNoError(replay.error);
+  if (dreamIdSchema.parse(replay.data) !== dreamId) {
+    throw new Error("Terminal audio replay changed the dream ID");
+  }
+  const after = await readTerminalPreparation(admin, dreamId);
+  if (after.status !== "DELETING" || after.audio_upload_expires_at !== before.audio_upload_expires_at) {
+    throw new Error("Terminal audio replay changed preparation state");
+  }
+}
+
+async function readTerminalPreparation(admin: AdminClient, dreamId: string) {
+  const result = await admin.from("dreams")
+    .select("status,audio_upload_expires_at").eq("id", dreamId).single();
+  assertNoError(result.error);
+  return z.object({
+    status: z.string(), audio_upload_expires_at: z.string().nullable(),
+  }).parse(result.data);
 }
 
 async function assertExpiredDraftCleanup(env: Env, admin: AdminClient, userId: string): Promise<void> {
@@ -173,7 +190,7 @@ async function expireAudio(admin: AdminClient, dreamId: string): Promise<void> {
 async function makeRetainedDreamReady(admin: AdminClient, dreamId: string): Promise<void> {
   const result = await admin.from("dreams").update({
     status: "READY", retain_audio: true, audio_mime_type: null, transcript: "Fixture transcript",
-    audio_upload_expires_at: new Date(Date.now() - 60_000).toISOString(),
+    mood: ["wonder"], audio_upload_expires_at: new Date(Date.now() - 60_000).toISOString(),
   }).eq("id", dreamId);
   assertNoError(result.error);
 }
