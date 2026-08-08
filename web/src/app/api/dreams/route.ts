@@ -6,7 +6,7 @@ import {
   DEFAULT_VISUAL_STYLE,
   visualStyleSchema,
 } from "@/lib/domain/identity";
-import { dreamQuotaResponse } from "@/app/api/dreams/quota";
+import { quotaResponse } from "@/lib/http/quotaResponse";
 
 const createDreamSchema = z.object({
   operationId: z.uuid(),
@@ -44,8 +44,8 @@ function createErrorResponse(error: unknown): Response {
   if (error instanceof z.ZodError) return Response.json({ error: "Invalid dream text" }, { status: 400 });
   if (error instanceof AuthenticationError) return Response.json({ error: error.message }, { status: 401 });
   if (error instanceof DreamAccessError) return Response.json({ error: error.message }, { status: 404 });
-  const quotaResponse = dreamQuotaResponse(error);
-  if (quotaResponse) return quotaResponse;
+  const quota = quotaResponse(error);
+  if (quota) return quota;
   console.error("Dream generation start failed", safeError(error));
   return Response.json({ error: "Dream generation could not be started" }, { status: 503 });
 }

@@ -143,12 +143,26 @@ async function submitBranch(
   operationId.current ??= crypto.randomUUID();
   try {
     const response = await requestBranch(dreamId, scene, instruction, operationId.current);
-    if (!response.ok) throw new Error("Branch request failed");
+    if (!response.ok) throw new BranchRequestError(await branchErrorMessage(response));
     operationId.current = null; onClose();
-  } catch {
-    setError("The new version could not be started."); setSubmitting(false);
+  } catch (cause: unknown) {
+    setError(cause instanceof BranchRequestError
+      ? cause.message : "The new version could not be started.");
+    setSubmitting(false);
   }
 }
+
+async function branchErrorMessage(response: Response): Promise<string> {
+  try {
+    const payload = await response.json() as { readonly error?: unknown };
+    return typeof payload.error === "string" && payload.error
+      ? payload.error : "The new version could not be started.";
+  } catch {
+    return "The new version could not be started.";
+  }
+}
+
+class BranchRequestError extends Error {}
 
 function requestBranch(
   dreamId: string,

@@ -60,6 +60,17 @@ it("does not overwrite audio when completion verification is unavailable", async
     expect(harness.phase).toBe("recorded");
 });
 
+it("shows a quota explanation when audio preparation is denied", async () => {
+  const harness = createRecorderHarness(null);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(
+    { error: "Two dreams are already being made. Wait for one to finish." },
+    { status: 429 },
+  )));
+  await uploadDreamRecording(harness.recorder, harness.onComplete);
+  expect(harness.error).toBe("Two dreams are already being made. Wait for one to finish.");
+  expect(storageMocks.uploadToSignedUrl).not.toHaveBeenCalled();
+});
+
 it("starts a fresh operation when the selected style changes before retry", async () => {
   const harness = createRecorderHarness({ upload: UPLOAD, attempted: true, stored: true });
   const fresh = { ...UPLOAD, dreamId: "54b29c11-fde8-4481-9b81-1e2cb570e3bc" };
@@ -90,12 +101,12 @@ interface RecorderHarness {
 }
 
 function createRecorderHarness(
-  initialAttempt: Omit<UploadAttempt, "options"> & Pick<Partial<UploadAttempt>, "options">,
+  initialAttempt: (Omit<UploadAttempt, "options"> & Pick<Partial<UploadAttempt>, "options">) | null,
 ): RecorderHarness {
-  let attempt: UploadAttempt | null = {
+  let attempt: UploadAttempt | null = initialAttempt ? {
     options: { identityReferenceId: null, visualStyle: DEFAULT_VISUAL_STYLE },
     ...initialAttempt,
-  };
+  } : null;
   let phase: RecorderPhase = "recorded";
   let error: string | null = null;
   let completedDreamId: string | null = null;

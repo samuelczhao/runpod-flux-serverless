@@ -4,6 +4,7 @@ import { getRunpodEnv } from "@/lib/config/env";
 import { createSceneBranch, getOwnedSceneVersion, getSceneVersion } from "@/lib/database/scenes";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BranchAccessError, startBranchGeneration } from "@/workflows/start-branch";
+import { quotaResponse } from "@/lib/http/quotaResponse";
 
 interface RouteContext {
   readonly params: Promise<{ sceneId: string }>;
@@ -16,6 +17,8 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     if (error instanceof z.ZodError) return Response.json({ error: "Invalid scene edit" }, { status: 400 });
     if (error instanceof AuthenticationError) return Response.json({ error: error.message }, { status: 401 });
     if (error instanceof BranchAccessError) return branchNotFound();
+    const quota = quotaResponse(error);
+    if (quota) return quota;
     return Response.json({ error: "Scene branch could not be started" }, { status: 503 });
   }
 }
