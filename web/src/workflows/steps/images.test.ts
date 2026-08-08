@@ -115,6 +115,8 @@ it("keeps identity, style, and visual continuity when a scene prompt is long", a
   const prompt = String(mocks.submit.mock.calls[0][1].prompt);
   expect(prompt).toContain("only as the identity and appearance guide");
   expect(prompt).toContain("single continuous visual moment");
+  expect(prompt).toContain("same single dreamer");
+  expect(prompt).toContain("one body performs the described action");
   expect(prompt).toContain("dreamer appears exactly once");
   expect(prompt).toContain("full-body or three-quarter figure");
   expect(prompt).toContain("action and setting occupy most of the image");
