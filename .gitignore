@@ -16,3 +16,10 @@ artifacts/
 generated.png
 *.egg-info/
 .DS_Store
+web/.next/
+web/node_modules/
+web/coverage/
+web/test-results/
+web/playwright-report/
+supabase/.branches/
+supabase/.temp/

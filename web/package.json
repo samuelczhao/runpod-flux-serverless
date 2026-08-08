@@ -1,0 +1,43 @@
+{
+  "name": "dreamtrace-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": "24.x"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@swc/core", "esbuild", "unrs-resolver"]
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --max-warnings=0",
+    "demo:seed": "node scripts/live-demo-smoke.ts",
+    "test:db:branch-recovery": "node scripts/verify-branch-recovery.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.4",
+    "@supabase/supabase-js": "2.112.2",
+    "decimal.js": "10.6.0",
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "workflow": "4.8.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.13",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

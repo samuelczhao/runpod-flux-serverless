@@ -1,0 +1,196 @@
+import { setTimeout as delay } from "node:timers/promises";
+import { z } from "zod";
+
+const POLL_INTERVAL_MS = 3_000;
+const DREAM_TIMEOUT_MS = 45 * 60 * 1_000;
+const BRANCH_TIMEOUT_MS = 15 * 60 * 1_000;
+const MAX_COOKIE_BYTES = 3_180;
+
+const envSchema = z.object({
+  DREAMTRACE_DEMO_SEED: z.literal("1"),
+  DREAMTRACE_BASE_URL: z.url().default("http://localhost:3000"),
+  NEXT_PUBLIC_SUPABASE_URL: z.url(),
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
+});
+const createSchema = z.object({ dreamId: z.uuid(), runId: z.string().min(1) }).strict();
+const versionSchema = z.object({
+  id: z.uuid(), status: z.string(), isSelected: z.boolean(), imageUrl: z.url().nullable(),
+}).passthrough();
+const sceneSchema = z.object({
+  id: z.uuid(), ordinal: z.number().int(), versionId: z.uuid().nullable(),
+  versions: z.array(versionSchema),
+}).passthrough();
+const storySchema = z.object({
+  id: z.uuid(), status: z.string(), failedStage: z.string().nullable(),
+  errorCode: z.string().nullable(), scenes: z.array(sceneSchema),
+}).passthrough();
+const branchSchema = z.object({ versionId: z.uuid(), runId: z.string().nullable() }).strict();
+
+type SmokeEnv = z.infer<typeof envSchema>;
+type Story = z.infer<typeof storySchema>;
+
+interface AppContext {
+  readonly baseUrl: string;
+  readonly cookie: string;
+}
+
+async function main(): Promise<void> {
+  const env = envSchema.parse(process.env);
+  const context = await createContext(env);
+  const first = await createDream(context, FIRST_DREAM);
+  const firstStory = await waitForDream(context, first.dreamId, "dream_one");
+  const branchId = await branchSecondScene(context, firstStory);
+  const second = await createDream(context, SECOND_DREAM);
+  await waitForDream(context, second.dreamId, "dream_two");
+  console.log(`demo_ready dream_one=${first.dreamId} dream_two=${second.dreamId} branch=${branchId}`);
+}
+
+async function createContext(env: SmokeEnv): Promise<AppContext> {
+  const session = await requestJson(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/signup`, {
+    method: "POST", headers: authHeaders(env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
+    body: JSON.stringify({ data: {} }),
+  });
+  const cookie = sessionCookie(env.NEXT_PUBLIC_SUPABASE_URL, session);
+  return { baseUrl: env.DREAMTRACE_BASE_URL.replace(/\/$/, ""), cookie };
+}
+
+async function createDream(context: AppContext, transcript: string) {
+  const payload = await appRequest(context, "/api/dreams", {
+    method: "POST", body: JSON.stringify({ transcript }),
+  });
+  const created = createSchema.parse(payload);
+  console.log(`dream_started id=${created.dreamId} run=${created.runId}`);
+  return created;
+}
+
+async function waitForDream(context: AppContext, dreamId: string, label: string): Promise<Story> {
+  let previous = "";
+  const deadline = Date.now() + DREAM_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const story = storySchema.parse(await appRequest(context, `/api/dreams/${dreamId}`));
+    if (story.status !== previous) console.log(`${label} status=${story.status}`);
+    previous = story.status;
+    if (story.status === "READY") return assertReadyStory(story);
+    if (story.status === "FAILED") throw new Error(`${label} failed at ${story.failedStage}:${story.errorCode}`);
+    await delay(POLL_INTERVAL_MS);
+  }
+  throw new Error(`${label} timed out`);
+}
+
+async function branchSecondScene(context: AppContext, story: Story): Promise<string> {
+  const scene = story.scenes.find((candidate) => candidate.ordinal === 2);
+  if (!scene?.versionId) throw new Error("Second scene has no selected version");
+  const request = branchRequest(story.id, scene.versionId);
+  const branch = await startBranchTwice(context, scene.id, request);
+  console.log(`branch_started id=${branch.versionId} run=${branch.runId}`);
+  await waitForBranch(context, story.id, branch.versionId);
+  await selectBranch(context, scene.id, scene.versionId, branch.versionId);
+  await assertBranchSelected(context, story.id, scene.id, branch.versionId);
+  return branch.versionId;
+}
+
+async function startBranchTwice(
+  context: AppContext,
+  sceneId: string,
+  request: Readonly<Record<string, string>>,
+): Promise<z.infer<typeof branchSchema>> {
+  const payload = await appRequest(context, `/api/scenes/${sceneId}/branches`, {
+    method: "POST", body: JSON.stringify(request),
+  });
+  const branch = branchSchema.parse(payload);
+  const replay = branchSchema.parse(await appRequest(context, `/api/scenes/${sceneId}/branches`, {
+    method: "POST", body: JSON.stringify(request),
+  }));
+  if (replay.versionId !== branch.versionId) throw new Error("Branch replay created a duplicate version");
+  return branch;
+}
+
+async function waitForBranch(context: AppContext, dreamId: string, versionId: string): Promise<void> {
+  const deadline = Date.now() + BRANCH_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const story = storySchema.parse(await appRequest(context, `/api/dreams/${dreamId}`));
+    const branch = story.scenes.flatMap((scene) => scene.versions).find((version) => version.id === versionId);
+    if (branch?.status === "COMPLETED") return console.log("branch status=COMPLETED");
+    if (branch && ["FAILED", "CANCELLED", "SUBMIT_UNKNOWN"].includes(branch.status)) {
+      throw new Error(`branch failed with ${branch.status}`);
+    }
+    await delay(POLL_INTERVAL_MS);
+  }
+  throw new Error("branch timed out");
+}
+
+async function selectBranch(
+  context: AppContext,
+  sceneId: string,
+  expectedVersionId: string,
+  nextVersionId: string,
+): Promise<void> {
+  await appRequest(context, `/api/scenes/${sceneId}/selection`, {
+    method: "POST", body: JSON.stringify({ expectedVersionId, nextVersionId }),
+  });
+  await appRequest(context, `/api/scenes/${sceneId}/selection`, {
+    method: "POST", body: JSON.stringify({ expectedVersionId, nextVersionId }),
+  });
+  console.log(`branch_selected id=${nextVersionId}`);
+}
+
+function branchRequest(dreamId: string, parentVersionId: string): Readonly<Record<string, string>> {
+  return {
+    dreamId, parentVersionId, operationId: crypto.randomUUID(),
+    instruction: "Make the conductor an unmistakable red fox with a long muzzle and a large bushy tail. Keep the train, brass key, composition, lighting, and violet-night style unchanged.",
+  };
+}
+
+function assertReadyStory(story: Story): Story {
+  const ordinals = story.scenes.map((scene) => scene.ordinal).sort();
+  if (ordinals.join(",") !== "1,2,3") throw new Error("READY dream does not have exactly three scenes");
+  for (const scene of story.scenes) {
+    const selected = scene.versions.filter((version) => version.isSelected);
+    if (selected.length !== 1 || selected[0].status !== "COMPLETED" || !selected[0].imageUrl) {
+      throw new Error(`READY scene ${scene.ordinal} has no selected completed image`);
+    }
+  }
+  return story;
+}
+
+async function assertBranchSelected(
+  context: AppContext,
+  dreamId: string,
+  sceneId: string,
+  versionId: string,
+): Promise<void> {
+  const story = assertReadyStory(storySchema.parse(await appRequest(context, `/api/dreams/${dreamId}`)));
+  const scene = story.scenes.find((candidate) => candidate.id === sceneId);
+  const selected = scene?.versions.find((version) => version.isSelected);
+  if (selected?.id !== versionId) throw new Error("Selected branch did not persist");
+}
+
+async function appRequest(context: AppContext, path: string, init: RequestInit = {}): Promise<unknown> {
+  return requestJson(`${context.baseUrl}${path}`, {
+    ...init, headers: { "Content-Type": "application/json", Cookie: context.cookie, ...init.headers },
+  });
+}
+
+async function requestJson(url: string, init: RequestInit): Promise<unknown> {
+  const response = await fetch(url, init);
+  if (!response.ok) throw new Error(`Request failed with HTTP ${response.status}`);
+  return response.json() as Promise<unknown>;
+}
+
+function sessionCookie(supabaseUrl: string, value: unknown): string {
+  const session = z.object({ access_token: z.string(), refresh_token: z.string(), user: z.object({ id: z.uuid() }) })
+    .passthrough().parse(value);
+  const encoded = `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`;
+  if (encoded.length > MAX_COOKIE_BYTES) throw new Error("Supabase session requires chunked cookies");
+  const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+  return `sb-${projectRef}-auth-token=${encoded}`;
+}
+
+function authHeaders(apiKey: string): Readonly<Record<string, string>> {
+  return { apikey: apiKey, "Content-Type": "application/json" };
+}
+
+const FIRST_DREAM = "I rode a silver train toward a moonlit lake while a red fox conductor guarded a brass key. At the shore the brass key opened a glass observatory, and inside the red fox pointed to a silver train circling the moon like a constellation.";
+const SECOND_DREAM = "I found the same brass key beneath a moonlit lake and followed a red fox onto a silver train. The silver train carried us to a quiet library where floating lanterns formed a constellation and the brass key became a small moon.";
+
+await main();

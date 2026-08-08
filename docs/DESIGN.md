@@ -2,12 +2,56 @@
 
 ## Goals
 
-The endpoint must turn a text prompt into a FLUX.1-dev image, behave predictably under
-invalid input, fit Runpod's serverless execution model, and remain easy to demonstrate.
-Production features unrelated to the case study—accounts, object storage, databases,
-and a web UI—are intentionally excluded.
+The required endpoint must turn a text prompt into a FLUX.1-dev image, behave
+predictably under invalid input, fit Runpod's serverless execution model, and remain
+easy to demonstrate. DreamTrace is a deliberate product extension around that worker;
+it adds a web UI, private object storage, a relational journal, and durable multi-model
+orchestration without changing the required endpoint contract.
 
 ## Decisions
+
+### Product extension without hiding the case study
+
+DreamTrace uses the custom worker for its anchor scene, then adds a dedicated Qwen
+planner and Kontext continuity/edit stages. This keeps the evaluator's requested
+handler, image, endpoint, and direct request test independently reviewable while showing
+how the endpoint participates in a coherent application.
+
+Tradeoff: the application has more infrastructure than the minimum submission. The
+worker remains runnable and documented on its own, and each added provider boundary has
+strict validation, persisted identity, and a scale-to-zero cost cap.
+
+### Durable paid-work accounting
+
+The application claims a generation operation in Postgres before calling Runpod. The
+claim records the exact endpoint, model, stable request hash, and operation key. The
+external job ID is recorded before polling, and database functions enforce legal state
+transitions and idempotent completion.
+
+Tradeoff: an uncertain submission or cancellation cannot be automatically retried. It
+is surfaced for reconciliation because duplicate GPU work is more expensive and less
+recoverable than a visible incomplete dream.
+
+### Anonymous private journals
+
+Supabase anonymous auth provides a low-friction browser journal while RLS isolates every
+row and private object. Service-role access is limited to server workflows; user-facing
+reads use the session client so foreign IDs are indistinguishable from missing IDs.
+
+Tradeoff: clearing browser identity can make an anonymous journal inaccessible. Account
+linking is the production path for durable cross-device ownership, but is not necessary
+to demonstrate the serverless GPU workflow.
+
+### Exact motifs, deterministic layout
+
+Recurring motifs use canonical per-user slugs created from the planner's bounded output.
+The journal constellation connects adjacent chronological occurrences and collapses
+multiple shared motifs into weighted edges. Golden-angle positions do not move when a
+newer dream is appended.
+
+Tradeoff: exact matching is explainable and deterministic but does not merge semantic
+synonyms. Embedding-based clustering is deferred until it can be evaluated for false
+connections.
 
 ### Queue endpoint
 
