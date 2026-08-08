@@ -17,8 +17,8 @@ async function main(): Promise<void> {
   const env = parseIntegrationEnv();
   const admin = createAdmin(env);
   const userId = await createAnonymousUser(env);
-  const globalBefore = await globalUsage(admin);
   try {
+    const globalBefore = await globalUsage(admin);
     await verifyQuotaLifecycle(admin, userId, globalBefore);
     console.log("dream_quotas status=COMPLETED");
   } finally {
