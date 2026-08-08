@@ -11,11 +11,13 @@ export function SceneCard({ dreamId, scene, totalMoments, onStoryChanged }: {
   readonly onStoryChanged: () => void;
 }): ReactElement {
   const [editing, setEditing] = useState(false);
-  const [branchPending, setBranchPending] = useState(false);
+  const [pendingAfter, setPendingAfter] = useState<{ readonly branchId: string | null } | null>(null);
   const branchPanelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const restoreTriggerFocus = useRef(false);
-  const branch = scene.versions.find((version) => version.parentVersionId !== null);
+  const branch = scene.versions.filter((version) => version.parentVersionId !== null).at(-1);
+  const retryable = branch ? isRetryableBranch(branch) : false;
+  const branchPending = pendingAfter !== null && pendingAfter.branchId === (branch?.id ?? null);
   useEffect(() => { if (branchPending) branchPanelRef.current?.focus(); }, [branchPending]);
   useEffect(() => {
     if (!editing && restoreTriggerFocus.current) {
@@ -23,7 +25,7 @@ export function SceneCard({ dreamId, scene, totalMoments, onStoryChanged }: {
     }
   }, [editing]);
   const cancelEditing = () => { restoreTriggerFocus.current = true; setEditing(false); };
-  const branchSubmitted = () => { setBranchPending(true); setEditing(false); };
+  const branchSubmitted = () => { setPendingAfter({ branchId: branch?.id ?? null }); setEditing(false); };
   return <article className="story-moment">
     <div className="moment-image"><SelectedScene scene={scene} /></div>
     <div className="moment-copy"><p className="moment-number">Moment {scene.ordinal}
@@ -31,11 +33,13 @@ export function SceneCard({ dreamId, scene, totalMoments, onStoryChanged }: {
       <div className="branch-panel" ref={branchPanelRef} tabIndex={-1}>
         {!branch && !editing && !branchPending ? <button className="scene-edit-trigger"
           onClick={() => setEditing(true)} ref={triggerRef} type="button">Try a different version</button> : null}
-        {editing && !branch ? <BranchForm dreamId={dreamId} onCancel={cancelEditing}
+        {editing && (!branch || retryable) ? <BranchForm dreamId={dreamId} onCancel={cancelEditing}
           onSubmitted={branchSubmitted} onStoryChanged={onStoryChanged} scene={scene} /> : null}
-        {branchPending && !branch ? <p className="branch-status" role="status">
+        {branchPending ? <p className="branch-status" role="status">
           Making another version…</p> : null}
-        {branch ? <BranchState branch={branch} onStoryChanged={onStoryChanged} scene={scene} /> : null}
+        {branch && !branchPending && !editing ? <BranchState branch={branch}
+          onRetry={() => setEditing(true)} onStoryChanged={onStoryChanged}
+          retryRef={triggerRef} scene={scene} /> : null}
       </div>
     </div>
   </article>;
@@ -73,8 +77,10 @@ function BranchForm({ dreamId, scene, onCancel, onSubmitted, onStoryChanged }: {
   </form>;
 }
 
-function BranchState({ branch, scene, onStoryChanged }: {
-  readonly branch: StoryVersion; readonly scene: StoryScene; readonly onStoryChanged: () => void;
+function BranchState({ branch, scene, onRetry, onStoryChanged, retryRef }: {
+  readonly branch: StoryVersion; readonly scene: StoryScene; readonly onRetry: () => void;
+  readonly onStoryChanged: () => void;
+  readonly retryRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const selected = scene.versions.find((version) => version.isSelected);
   const alternative = scene.versions.find((version) => version.id !== selected?.id && version.imageUrl);
@@ -83,13 +89,21 @@ function BranchState({ branch, scene, onStoryChanged }: {
       <BranchComparison sceneId={scene.id} current={selected} alternative={alternative}
         onStoryChanged={onStoryChanged} /></>;
   }
-  if (["FAILED", "CANCELLED"].includes(branch.status)) {
-    return <p className="branch-status form-error" role="alert">We couldn’t make the new version.</p>;
+  if (isRetryableBranch(branch)) {
+    return <><p className="branch-status form-error" role="alert">We couldn’t make the new version.</p>
+      <button className="scene-edit-trigger" onClick={onRetry} ref={retryRef} type="button">
+        Try another edit</button></>;
   }
-  const message = branch.status === "SUBMIT_UNKNOWN"
-    ? "Still working on your new version…"
-    : "Making another version…";
-  return <p className="branch-status" aria-live="polite" role="status">{message}</p>;
+  if (branch.status === "SUBMIT_UNKNOWN") {
+    return <p className="branch-status form-error" role="alert">
+      We couldn’t confirm that the new version started. Your current moment is safe.</p>;
+  }
+  return <p className="branch-status" aria-live="polite" role="status">
+    Making another version…</p>;
+}
+
+function isRetryableBranch(branch: StoryVersion): boolean {
+  return branch.status === "FAILED" || branch.status === "CANCELLED";
 }
 
 function BranchComparison({ sceneId, current, alternative, onStoryChanged }: {

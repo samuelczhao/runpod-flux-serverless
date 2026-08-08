@@ -55,7 +55,9 @@ export function createAdmin(env: Env): AdminClient {
 }
 
 export async function createAnonymousUser(env: Env): Promise<string> {
-  const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
   const result = await client.auth.signInAnonymously();
   assertNoError(result.error);
   if (!result.data.user) throw new Error("Anonymous user creation returned no user");

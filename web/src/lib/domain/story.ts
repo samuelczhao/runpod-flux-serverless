@@ -39,7 +39,7 @@ export type StoryScene = z.infer<typeof storySceneSchema>;
 export type StoryVersion = z.infer<typeof storyVersionSchema>;
 
 const ACTIVE_VERSION_STATUSES = new Set<StoryVersion["status"]>([
-  "PENDING", "SUBMITTING", "SUBMIT_UNKNOWN", "QUEUED", "RUNNING",
+  "PENDING", "SUBMITTING", "QUEUED", "RUNNING",
 ]);
 
 export function shouldPollDream(story: DreamStory): boolean {
