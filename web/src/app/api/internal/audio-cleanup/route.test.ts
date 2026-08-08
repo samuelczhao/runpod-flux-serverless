@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/internal/audio-cleanup/route";
 
-const mocks = vi.hoisted(() => ({ candidates: vi.fn(), start: vi.fn() }));
+const mocks = vi.hoisted(() => ({ candidates: vi.fn(), identities: vi.fn(), start: vi.fn() }));
 const ORIGINAL_ENV = { ...process.env };
 const SECRET = "s".repeat(32);
 
@@ -10,10 +10,12 @@ vi.mock("@/lib/database/dreams", () => ({
   getExpiredAudioCleanupCandidates: mocks.candidates,
 }));
 vi.mock("@/workflows/start-audio-cleanup", () => ({ startAudioCleanup: mocks.start }));
+vi.mock("@/lib/database/identity", () => ({ cleanupIdentityCandidates: mocks.identities }));
 
 beforeEach(() => {
   process.env = { ...ORIGINAL_ENV, CRON_SECRET: SECRET };
-  mocks.candidates.mockReset(); mocks.start.mockReset();
+  mocks.candidates.mockReset(); mocks.identities.mockReset(); mocks.start.mockReset();
+  mocks.identities.mockResolvedValue({ inspected: 0, failed: 0 });
 });
 
 afterEach(() => {

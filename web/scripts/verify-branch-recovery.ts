@@ -61,7 +61,13 @@ async function verifyFixture(
 async function assertTextWorkflowRecovery(admin: AdminClient, userId: string): Promise<void> {
   const operationId = crypto.randomUUID();
   const transcript = "A moonlit library floated over a quiet ocean.";
-  const args = { p_user_id: userId, p_operation_key: operationId, p_transcript: transcript };
+  const args = {
+    p_user_id: userId,
+    p_operation_key: operationId,
+    p_transcript: transcript,
+    p_identity_reference_id: null,
+    p_visual_style: "dream-cinema" as const,
+  };
   const first = await admin.rpc("prepare_text_dream", args);
   const replay = await admin.rpc("prepare_text_dream", args);
   assertNoError(first.error); assertNoError(replay.error);

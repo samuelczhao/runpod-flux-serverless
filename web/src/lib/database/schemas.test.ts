@@ -13,6 +13,8 @@ it("accepts PostgreSQL timestamps with a UTC offset", () => {
     audio_upload_expires_at: "2026-08-08T07:31:42.390675+00:00",
     retain_audio: false,
     visual_bible: null,
+    identity_reference_id: null,
+    visual_style: "dream-cinema",
     plan_hash: null,
     error_code: null,
   };

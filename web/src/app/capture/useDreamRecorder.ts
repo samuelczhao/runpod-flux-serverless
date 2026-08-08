@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MAX_RECORDING_SECONDS } from "@/lib/domain/audio";
 import { createRecordingBlob, disposeMediaRecorder, stopMediaStream } from "@/lib/domain/recorder";
+import type { DreamCaptureOptions } from "@/lib/domain/identity";
 
 export interface AudioUpload {
   readonly dreamId: string;
@@ -16,6 +17,7 @@ export interface UploadAttempt {
   readonly upload: AudioUpload;
   readonly attempted: boolean;
   readonly stored: boolean;
+  readonly options: DreamCaptureOptions;
 }
 
 interface RecorderState {
@@ -48,9 +50,10 @@ export interface DreamRecorder {
   readonly reset: () => void;
   readonly setUploading: () => void;
   readonly setRecorded: () => void;
-  readonly rememberUpload: (upload: AudioUpload) => void;
+  readonly rememberUpload: (upload: AudioUpload, options: DreamCaptureOptions) => void;
   readonly markUploadAttempted: () => void;
   readonly markUploadStored: () => void;
+  readonly restartUpload: () => string;
   readonly setError: (value: string) => void;
   readonly isMounted: () => boolean;
 }
@@ -70,12 +73,22 @@ export function useDreamRecorder(): DreamRecorder {
     ...recordingActions,
     setUploading: () => { state.setError(null); state.setPhase("uploading"); },
     setRecorded: () => state.setPhase("recorded"),
-    rememberUpload: (upload) => state.setUploadAttempt({ upload, attempted: false, stored: false }),
+    rememberUpload: (upload, options) => state.setUploadAttempt({
+      upload, options, attempted: false, stored: false,
+    }),
     markUploadAttempted: () => state.setUploadAttempt((value) => value && { ...value, attempted: true }),
     markUploadStored: () => state.setUploadAttempt((value) => value && { ...value, stored: true }),
+    restartUpload: () => restartUpload(state),
     setError: (value) => state.setError(value),
     isMounted: () => mountedRef.current,
   };
+}
+
+function restartUpload(state: RecorderState): string {
+  const operationId = crypto.randomUUID();
+  state.setUploadAttempt(null);
+  state.setUploadOperationId(operationId);
+  return operationId;
 }
 
 function useRecorderState(): RecorderState {

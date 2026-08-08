@@ -4,6 +4,7 @@ import {
   type AudioCleanupCandidate,
 } from "@/lib/database/dreams";
 import { startAudioCleanup } from "@/workflows/start-audio-cleanup";
+import { cleanupIdentityCandidates } from "@/lib/database/identity";
 
 const SWEEP_LIMIT = 50;
 
@@ -11,9 +12,14 @@ export async function GET(request: Request): Promise<Response> {
   try {
     requireCronRequest(request);
     const candidates = await getExpiredAudioCleanupCandidates(SWEEP_LIMIT);
-    const results = await Promise.allSettled(candidates.map(startCandidate));
-    const failed = results.filter((result) => result.status === "rejected").length;
-    return Response.json({ inspected: candidates.length, failed }, { status: failed ? 503 : 200 });
+    const [audioResults, identity] = await Promise.all([
+      Promise.allSettled(candidates.map(startCandidate)),
+      cleanupIdentityCandidates(SWEEP_LIMIT),
+    ]);
+    const audioFailed = audioResults.filter((result) => result.status === "rejected").length;
+    const failed = audioFailed + identity.failed;
+    const inspected = candidates.length + identity.inspected;
+    return Response.json({ inspected, failed }, { status: failed ? 503 : 200 });
   } catch (error: unknown) {
     const status = error instanceof CronAuthenticationError ? 401 : 500;
     return Response.json({ error: status === 401 ? "Unauthorized" : "Cleanup sweep failed" }, { status });

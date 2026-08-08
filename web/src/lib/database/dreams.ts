@@ -4,6 +4,7 @@ import type { DreamPlan, DreamStatus } from "@/lib/domain/dream";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { parseDatabaseRow, parseDatabaseRows, throwIfDatabaseError } from "@/lib/database/errors";
 import { processingDreamSchema, type ProcessingDream } from "@/lib/database/schemas";
+import type { VisualStyle } from "@/lib/domain/identity";
 
 const optionalWorkflowClaimSchema = z.object({
   workflow_id: z.string().nullable(), claimed: z.boolean(),
@@ -113,9 +114,12 @@ export async function prepareAudioDream(
   userId: string,
   operationId: string,
   mimeType: string,
+  identityReferenceId: string | null,
+  visualStyle: VisualStyle,
 ): Promise<string> {
   const result = await createSupabaseAdminClient().rpc("prepare_audio_dream", {
     p_user_id: userId, p_operation_key: operationId, p_mime_type: mimeType,
+    p_identity_reference_id: identityReferenceId, p_visual_style: visualStyle,
   });
   throwIfDatabaseError(result.error);
   return z.uuid().parse(result.data);
@@ -125,9 +129,12 @@ export async function prepareTextDream(
   userId: string,
   operationId: string,
   transcript: string,
+  identityReferenceId: string | null,
+  visualStyle: VisualStyle,
 ): Promise<string> {
   const result = await createSupabaseAdminClient().rpc("prepare_text_dream", {
     p_user_id: userId, p_operation_key: operationId, p_transcript: transcript,
+    p_identity_reference_id: identityReferenceId, p_visual_style: visualStyle,
   });
   throwIfDatabaseError(result.error);
   return z.uuid().parse(result.data);
@@ -245,4 +252,5 @@ function toAudioCleanupCandidate(
 }
 
 const DREAM_FIELDS = "id,user_id,status,input_mode,transcript,audio_storage_path,audio_mime_type,"
-  + "audio_upload_expires_at,retain_audio,visual_bible,plan_hash,error_code";
+  + "audio_upload_expires_at,retain_audio,visual_bible,identity_reference_id,visual_style,"
+  + "plan_hash,error_code";

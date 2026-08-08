@@ -9,9 +9,10 @@ connect across a private journal.
 Production: [dreamtrace.vercel.app](https://dreamtrace.vercel.app)
 
 Status: the custom FLUX worker, Qwen planner, Kontext generation, Whisper transcription,
-Supabase schema, and full DreamTrace workflow are deployed. Fresh Production acceptance
-covered text, voice, two three-scene stories, a coherent branch, replay safety, private
-storage, and audio-cleanup recovery.
+Supabase schema, and full DreamTrace workflow are deployed. The next release adds an
+optional private Dream Self photo, three illustration styles, and adaptive one-to-six
+scene stories; [docs/EVIDENCE.md](docs/EVIDENCE.md) separates historical Production
+evidence from the acceptance still required for that release.
 
 ## Product architecture
 
@@ -24,6 +25,8 @@ flowchart LR
     D --> F[Custom FLUX.1-dev endpoint]
     D --> G[Runpod Kontext endpoint]
     D --> K[Runpod Whisper endpoint]
+    C --> L[Private Dream Self reference]
+    L --> G
     G --> H[One to six coherent scenes]
     H --> I[Selectable scene branches]
     C --> J[Recurring-motif constellation]
@@ -37,11 +40,14 @@ that job, and make retries idempotent.
 ### What the app does
 
 - Accepts text or microphone capture with transcript review.
+- Optionally makes the dreamer recognizable from one private, normalized reference photo.
+- Offers cinematic painting, watercolor memory, and graphic surreal illustration styles.
 - Uses a dedicated Runpod Qwen3-4B-AWQ endpoint to produce a strict story plan.
 - Chooses one to six scenes based on the dream's important visual beats instead of
   padding every memory to a fixed length.
-- Generates the anchor with the required custom FLUX.1-dev worker, then uses Kontext to
-  preserve visual identity across scenes.
+- Without a Dream Self, generates the anchor with the required custom FLUX.1-dev worker,
+  then uses Kontext for continuity. With a Dream Self, uses the same immutable face
+  reference in every Kontext scene to prioritize recognizable identity.
 - Lets the user branch one scene from an edit instruction and explicitly select the
   preferred version.
 - Connects completed dreams through exact recurring motifs in an accessible,
@@ -160,7 +166,7 @@ pnpm lint
 pnpm build
 ```
 
-The web suite currently contains 165 GPU-free unit tests plus an opt-in linked-database
+The web suite currently contains 196 GPU-free unit tests plus an opt-in linked-database
 recovery test. The database fixture verifies idempotent audio preparation, atomic branch
 and dream recovery, duplicate text and workflow claims, audio format binding, NULL identity guards,
 completion, and cross-user RLS isolation, then deletes its anonymous users and
@@ -196,6 +202,7 @@ before writing the file.
 - [Testing and acceptance plan](docs/TESTING.md)
 - [Live presentation runbook](docs/PRESENTATION.md)
 - [DreamTrace product runbook](docs/DREAMTRACE.md)
+- [Dream Self privacy and generation design](docs/DREAM_SELF.md)
 - [DreamTrace web deployment](docs/WEB_DEPLOYMENT.md)
 - [Production acceptance evidence](docs/EVIDENCE.md)
 

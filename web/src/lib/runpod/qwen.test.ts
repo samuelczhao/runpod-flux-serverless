@@ -25,7 +25,23 @@ describe("Qwen dream planner", () => {
     const input = messageInputSchema.parse(buildDreamPlanInput(transcript));
     const payload = input.body.messages[1].content.replace("\n/no_think", "");
     expect(input.body.messages).toHaveLength(2);
-    expect(JSON.parse(payload)).toEqual({ dream_transcript: transcript });
+    expect(JSON.parse(payload)).toEqual({
+      dream_transcript: transcript,
+      has_dream_self: false,
+      visual_style: "dream-cinema",
+    });
+  });
+
+  it("passes trusted Dream Self and style settings outside the transcript", () => {
+    const input = messageInputSchema.parse(buildDreamPlanInput("I crossed a red desert.", {
+      hasDreamSelf: true,
+      visualStyle: "watercolor-memory",
+    }));
+    const payload = input.body.messages[1].content.replace("\n/no_think", "");
+    expect(JSON.parse(payload)).toMatchObject({
+      has_dream_self: true,
+      visual_style: "watercolor-memory",
+    });
   });
 
   it("normalizes the v2.24.0 OpenAI-compatible output", () => {

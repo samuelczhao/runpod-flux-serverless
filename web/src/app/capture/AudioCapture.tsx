@@ -7,22 +7,30 @@ import {
   type RecorderPhase,
 } from "@/app/capture/useDreamRecorder";
 import { uploadDreamRecording } from "@/app/capture/audioUpload";
+import type { VisualStyle } from "@/lib/domain/identity";
 
 export function AudioCapture({
   ready,
   onComplete,
   onBusyChange,
+  identityReferenceId,
+  visualStyle,
 }: {
   readonly ready: boolean;
   readonly onComplete: (dreamId: string) => void;
   readonly onBusyChange: (busy: boolean) => void;
+  readonly identityReferenceId: string | null;
+  readonly visualStyle: VisualStyle;
 }): ReactElement {
   const recorder = useDreamRecorder();
   useEffect(() => {
-    onBusyChange(recorder.phase !== "ready");
+    onBusyChange(["starting", "recording", "uploading"].includes(recorder.phase));
     return () => onBusyChange(false);
   }, [onBusyChange, recorder.phase]);
-  const submit = () => void uploadDreamRecording(recorder, onComplete);
+  const submit = () => void uploadDreamRecording(recorder, onComplete, {
+    identityReferenceId,
+    visualStyle,
+  });
   return <AudioCaptureCard ready={ready} recorder={recorder} submit={submit} />;
 }
 

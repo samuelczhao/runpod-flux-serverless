@@ -26,9 +26,36 @@ beforeEach(() => {
 it("uses the client operation ID to prepare and start a text dream", async () => {
   const response = await POST(createRequest());
   expect(response.status).toBe(202);
-  expect(mocks.prepare).toHaveBeenCalledWith(USER_ID, OPERATION_ID, "A moonlit library under water");
+  expect(mocks.prepare).toHaveBeenCalledWith(
+    USER_ID,
+    OPERATION_ID,
+    "A moonlit library under water",
+    null,
+    "dream-cinema",
+  );
   expect(mocks.start).toHaveBeenCalledWith(DREAM_ID, USER_ID);
   await expect(response.json()).resolves.toEqual({ dreamId: DREAM_ID, runId: "run-1" });
+});
+
+it("binds the selected Dream Self and style to the operation", async () => {
+  const identityId = "2d318f63-c0c2-4ed6-a33c-e7fcd51f08c8";
+  const response = await POST(new Request("https://dreamtrace.test/api/dreams", {
+    method: "POST",
+    body: JSON.stringify({
+      operationId: OPERATION_ID,
+      transcript: "A moonlit library under water",
+      identityReferenceId: identityId,
+      visualStyle: "watercolor-memory",
+    }),
+  }));
+  expect(response.status).toBe(202);
+  expect(mocks.prepare).toHaveBeenCalledWith(
+    USER_ID,
+    OPERATION_ID,
+    "A moonlit library under water",
+    identityId,
+    "watercolor-memory",
+  );
 });
 
 it("rejects a missing operation ID before allocating work", async () => {

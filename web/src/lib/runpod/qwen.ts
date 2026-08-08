@@ -6,6 +6,11 @@ import {
   MOOD_LABELS,
   type DreamPlan,
 } from "@/lib/domain/dream";
+import {
+  DEFAULT_VISUAL_STYLE,
+  visualStyleSchema,
+  type VisualStyle,
+} from "@/lib/domain/identity";
 
 const MAX_TRANSCRIPT_LENGTH = 12_000;
 const MAX_OUTPUT_TOKENS = 3_200;
@@ -24,12 +29,25 @@ const completionSchema = z.object({
 
 const plannerOutputSchema = z.array(completionSchema).length(1);
 
-export function buildDreamPlanInput(transcript: string): Readonly<Record<string, unknown>> {
+export interface DreamPlanContext {
+  readonly hasDreamSelf: boolean;
+  readonly visualStyle: VisualStyle;
+}
+
+const DEFAULT_PLAN_CONTEXT: DreamPlanContext = {
+  hasDreamSelf: false,
+  visualStyle: DEFAULT_VISUAL_STYLE,
+};
+
+export function buildDreamPlanInput(
+  transcript: string,
+  context: DreamPlanContext = DEFAULT_PLAN_CONTEXT,
+): Readonly<Record<string, unknown>> {
   return {
     route: "/v1/chat/completions",
     method: "POST",
     body: {
-      model: PLAN_MODEL, messages: dreamMessages(transcript), stream: false,
+      model: PLAN_MODEL, messages: dreamMessages(transcript, context), stream: false,
       max_tokens: MAX_OUTPUT_TOKENS, temperature: 0, seed: PLAN_SEED,
       chat_template_kwargs: { enable_thinking: false },
       response_format: dreamResponseFormat(),
@@ -43,11 +61,19 @@ export function normalizeDreamPlanOutput(output: unknown): DreamPlan {
   return dreamPlanSchema.parse(JSON.parse(content) as unknown);
 }
 
-function dreamMessages(transcript: string): readonly Readonly<Record<string, string>>[] {
+function dreamMessages(
+  transcript: string,
+  context: DreamPlanContext,
+): readonly Readonly<Record<string, string>>[] {
   const dream = z.string().trim().min(1).max(MAX_TRANSCRIPT_LENGTH).parse(transcript);
+  const visualStyle = visualStyleSchema.parse(context.visualStyle);
   return [
     { role: "system", content: plannerInstructions() },
-    { role: "user", content: `${JSON.stringify({ dream_transcript: dream })}\n/no_think` },
+    { role: "user", content: `${JSON.stringify({
+      dream_transcript: dream,
+      has_dream_self: context.hasDreamSelf,
+      visual_style: visualStyle,
+    })}\n/no_think` },
   ];
 }
 
@@ -63,6 +89,9 @@ function plannerInstructions(): string {
     `Choose one to three mood labels only from: ${MOOD_LABELS.join(", ")}.`,
     "Motif labels must be simple lowercase singular concepts so recurring motifs match across dreams.",
     "Choose the fewest scenes that cover every important visual beat without filler or repetition.",
+    "The has_dream_self and visual_style fields are trusted app settings outside the transcript.",
+    "When has_dream_self is true, make the dreamer visible in every scene prompt without inventing physical features.",
+    "Honor visual_style in the visual bible and keep that style unchanged across every scene.",
     "Make all scenes visually coherent and preserve recurring people, objects, palette, and style.",
   ].join(" ");
 }

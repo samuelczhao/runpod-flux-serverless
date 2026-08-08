@@ -42,7 +42,13 @@ async function assertNullMimeRejected(env: Env, userId: string): Promise<void> {
 }
 
 function audioPreparationArgs(userId: string, operationId: string, mimeType: string) {
-  return { p_user_id: userId, p_operation_key: operationId, p_mime_type: mimeType };
+  return {
+    p_user_id: userId,
+    p_operation_key: operationId,
+    p_mime_type: mimeType,
+    p_identity_reference_id: null,
+    p_visual_style: "dream-cinema" as const,
+  };
 }
 
 async function assertMimeConflict(

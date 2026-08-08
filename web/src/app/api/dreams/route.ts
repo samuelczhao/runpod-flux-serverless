@@ -2,10 +2,16 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { prepareTextDream } from "@/lib/database/dreams";
 import { DreamAccessError, startDreamGeneration } from "@/workflows/start";
+import {
+  DEFAULT_VISUAL_STYLE,
+  visualStyleSchema,
+} from "@/lib/domain/identity";
 
 const createDreamSchema = z.object({
   operationId: z.uuid(),
   transcript: z.string().trim().min(10).max(12_000),
+  identityReferenceId: z.uuid().nullable().default(null),
+  visualStyle: visualStyleSchema.default(DEFAULT_VISUAL_STYLE),
 }).strict();
 
 export async function POST(request: Request): Promise<Response> {
@@ -13,7 +19,13 @@ export async function POST(request: Request): Promise<Response> {
     const input = createDreamSchema.parse(await request.json() as unknown);
     const client = await createSupabaseServerClient();
     const user = await requireUser(client);
-    const dreamId = await prepareTextDream(user.id, input.operationId, input.transcript);
+    const dreamId = await prepareTextDream(
+      user.id,
+      input.operationId,
+      input.transcript,
+      input.identityReferenceId,
+      input.visualStyle,
+    );
     const run = await startDreamGeneration(dreamId, user.id);
     return Response.json({ dreamId, runId: run.runId }, { status: 202 });
   } catch (error: unknown) {

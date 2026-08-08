@@ -20,7 +20,10 @@ export async function submitPlanStep(dreamId: string): Promise<string> {
   const dream = await getProcessingDream(dreamId);
   if (dream.status !== "PLANNING" || !dream.transcript) throw new Error("Dream is not ready for planning");
   const endpointId = getRunpodEnv().plannerEndpointId;
-  const input = buildDreamPlanInput(dream.transcript);
+  const input = buildDreamPlanInput(dream.transcript, {
+    hasDreamSelf: dream.identity_reference_id !== null,
+    visualStyle: dream.visual_style,
+  });
   const claim = await claimPlanJob(dream.user_id, dream.id, endpointId, input);
   if (!claim.claimed) return resumePlanClaim(claim);
   return submitPlan(claim, endpointId, input);
@@ -57,7 +60,7 @@ async function claimPlanJob(
 ): Promise<JobClaim> {
   return claimGenerationJob({
     userId, dreamId, sceneVersionId: null, stage: "plan",
-    operationKey: `${dreamId}:plan:v2`, model: PLAN_MODEL,
+    operationKey: `${dreamId}:plan:v3`, model: PLAN_MODEL,
     endpointId,
     requestHash: hashJson({ endpointId, input }),
   });

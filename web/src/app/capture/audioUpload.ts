@@ -8,6 +8,10 @@ import {
   type AudioMimeType,
 } from "@/lib/domain/audio";
 import type { AudioUpload, DreamRecorder } from "@/app/capture/useDreamRecorder";
+import {
+  DEFAULT_VISUAL_STYLE,
+  type DreamCaptureOptions,
+} from "@/lib/domain/identity";
 
 const uploadSchema = z.object({
   dreamId: z.uuid(), path: z.string().min(1), token: z.string().min(1),
@@ -18,15 +22,21 @@ interface StoredUpload {
   readonly completed: boolean;
 }
 
+const DEFAULT_CAPTURE_OPTIONS: DreamCaptureOptions = {
+  identityReferenceId: null,
+  visualStyle: DEFAULT_VISUAL_STYLE,
+};
+
 export async function uploadDreamRecording(
   recorder: DreamRecorder,
   onComplete: (dreamId: string) => void,
+  options: DreamCaptureOptions = DEFAULT_CAPTURE_OPTIONS,
 ): Promise<void> {
   const blob = validateRecording(recorder);
   if (!blob) return;
   recorder.setUploading();
   try {
-    const dreamId = await persistRecording(recorder, blob);
+    const dreamId = await persistRecording(recorder, blob, options);
     if (recorder.isMounted()) onComplete(dreamId);
   } catch {
     if (!recorder.isMounted()) return;
@@ -44,9 +54,13 @@ function validateRecording(recorder: DreamRecorder): Blob | null {
   return recorder.blob;
 }
 
-async function persistRecording(recorder: DreamRecorder, blob: Blob): Promise<string> {
+async function persistRecording(
+  recorder: DreamRecorder,
+  blob: Blob,
+  options: DreamCaptureOptions,
+): Promise<string> {
   const mimeType = normalizeAudioMimeType(blob.type);
-  const result = await ensureUploadStored(recorder, blob, mimeType);
+  const result = await ensureUploadStored(recorder, blob, mimeType, options);
   if (!result.completed) {
     await requireUploadCompletion(result.upload, mimeType, blob.size);
   }
@@ -57,17 +71,28 @@ async function ensureUploadStored(
   recorder: DreamRecorder,
   blob: Blob,
   mimeType: AudioMimeType,
+  options: DreamCaptureOptions,
 ): Promise<StoredUpload> {
   const attempt = recorder.uploadAttempt;
+  if (attempt && !sameCaptureOptions(attempt.options, options)) {
+    const upload = await requestUpload(mimeType, recorder.restartUpload(), options);
+    return storeUpload(recorder, upload, blob, mimeType, options);
+  }
+  const operationOptions = attempt?.options ?? options;
   if (attempt?.stored) return { upload: attempt.upload, completed: false };
   if (attempt?.attempted) {
     const completed = await inspectUploadCompletion(attempt.upload, mimeType, blob.size);
     if (completed) return { upload: attempt.upload, completed: true };
   }
   const upload = attempt?.attempted
-    ? await requestUpload(mimeType, recorder.uploadOperationId)
-    : attempt?.upload ?? await requestUpload(mimeType, recorder.uploadOperationId);
-  return storeUpload(recorder, upload, blob, mimeType);
+    ? await requestUpload(mimeType, recorder.uploadOperationId, operationOptions)
+    : attempt?.upload ?? await requestUpload(mimeType, recorder.uploadOperationId, operationOptions);
+  return storeUpload(recorder, upload, blob, mimeType, operationOptions);
+}
+
+function sameCaptureOptions(left: DreamCaptureOptions, right: DreamCaptureOptions): boolean {
+  return left.identityReferenceId === right.identityReferenceId
+    && left.visualStyle === right.visualStyle;
 }
 
 async function storeUpload(
@@ -75,18 +100,23 @@ async function storeUpload(
   upload: AudioUpload,
   blob: Blob,
   mimeType: AudioMimeType,
+  options: DreamCaptureOptions,
 ): Promise<StoredUpload> {
-  recorder.rememberUpload(upload);
+  recorder.rememberUpload(upload, options);
   recorder.markUploadAttempted();
   await uploadBlob(upload.path, upload.token, blob, mimeType);
   recorder.markUploadStored();
   return { upload, completed: false };
 }
 
-async function requestUpload(mimeType: AudioMimeType, operationId: string): Promise<AudioUpload> {
+async function requestUpload(
+  mimeType: AudioMimeType,
+  operationId: string,
+  options: DreamCaptureOptions,
+): Promise<AudioUpload> {
   const response = await fetch("/api/dreams/audio", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mimeType, operationId }),
+    body: JSON.stringify({ mimeType, operationId, ...options }),
   });
   if (!response.ok) throw new Error("Audio upload preparation failed");
   return uploadSchema.parse(await response.json() as unknown);
