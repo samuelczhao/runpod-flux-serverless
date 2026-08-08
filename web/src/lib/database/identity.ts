@@ -1,4 +1,5 @@
 import "server-only";
+import { StorageApiError } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
   IDENTITY_CONSENT_VERSION,
@@ -19,6 +20,7 @@ import type { NormalizedIdentityImage } from "@/lib/images/normalizeIdentity";
 const IDENTITY_BUCKET = "identity-references";
 const IDENTITY_PREVIEW_URL_SECONDS = 3_600;
 const IDENTITY_PROVIDER_URL_SECONDS = 900;
+const MISSING_OBJECT_STATUSES = new Set([400, 404]);
 const signedUploadSchema = z.object({
   path: z.string().min(1),
   token: z.string().min(1),
@@ -94,8 +96,10 @@ export async function prepareIdentityUpload(
   }
   if (!row.source_path) throw new IdentityPreparationError("Photo upload source is missing");
   const existing = await client.storage.from(IDENTITY_BUCKET).exists(row.source_path);
-  throwIfDatabaseError(existing.error);
   if (existing.data) return { status: "stored", identityId: row.reference_id };
+  if (existing.error && !isMissingObjectError(existing.error)) {
+    throwIfDatabaseError(existing.error);
+  }
   const signed = await client.storage.from(IDENTITY_BUCKET)
     .createSignedUploadUrl(row.source_path, { upsert: false });
   throwIfDatabaseError(signed.error);
@@ -277,6 +281,10 @@ function identityPath(userId: string, identityId: string): string {
 
 function isString(value: string | null): value is string {
   return value !== null;
+}
+
+function isMissingObjectError(error: unknown): boolean {
+  return error instanceof StorageApiError && MISSING_OBJECT_STATUSES.has(error.status);
 }
 
 export class IdentityPreparationError extends Error {
