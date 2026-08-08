@@ -50,6 +50,19 @@ export async function getQueueStatus(
   return statusSchema.parse(await readJson(response));
 }
 
+export async function cancelQueueJob(
+  endpointId: string,
+  jobId: string,
+  apiKey: string,
+  fetcher: FetchLike = fetch,
+): Promise<QueueStatus> {
+  const safeJobId = encodeURIComponent(z.string().min(1).parse(jobId));
+  const response = await fetcher(queueUrl(endpointId, `cancel/${safeJobId}`), {
+    method: "POST", headers: bearerHeaders(apiKey),
+  });
+  return statusSchema.parse(await readJson(response));
+}
+
 function queueUrl(endpointId: string, route: string): string {
   return `${API_BASE}/${endpointIdSchema.parse(endpointId)}/${route}`;
 }

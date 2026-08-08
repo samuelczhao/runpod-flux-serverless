@@ -39,10 +39,13 @@ export const sceneVersionSchema = z.object({
   scene_id: uuidSchema,
   parent_version_id: uuidSchema.nullable(),
   storage_path: z.string().nullable(),
+  edit_instruction: z.string().nullable(),
   seed: z.coerce.number().int().nonnegative().nullable(),
   model: z.string().min(1),
   status: jobStatusSchema,
   is_selected: z.boolean(),
+  operation_key: z.string().nullable(),
+  request_hash: z.string().nullable(),
 }).strict();
 
 export const jobSchema = z.object({
@@ -52,6 +55,7 @@ export const jobSchema = z.object({
   scene_version_id: uuidSchema.nullable(),
   stage: z.string().min(1),
   model: z.string().min(1),
+  endpoint_id: z.string().min(1).nullable(),
   external_job_id: z.string().nullable(),
   status: jobStatusSchema,
   request_hash: z.string().length(64),

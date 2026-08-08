@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database/types";
 import { parseDatabaseRow, parseDatabaseRows, throwIfDatabaseError } from "@/lib/database/errors";
 import { dreamStorySchema, type DreamStory, type StoryScene } from "@/lib/domain/story";
+import { jobStatusSchema } from "@/lib/database/schemas";
 
 const dreamRowSchema = z.object({
   id: z.uuid(), status: z.string(), title: z.string().nullable(), summary: z.string().nullable(),
@@ -14,7 +15,9 @@ const sceneRowSchema = z.object({
   id: z.uuid(), ordinal: z.number().int(), caption: z.string(),
 }).strict();
 const versionRowSchema = z.object({
-  id: z.uuid(), scene_id: z.uuid(), storage_path: z.string(),
+  id: z.uuid(), scene_id: z.uuid(), parent_version_id: z.uuid().nullable(),
+  storage_path: z.string().nullable(), edit_instruction: z.string().nullable(),
+  status: jobStatusSchema, is_selected: z.boolean(),
 }).strict();
 
 export async function readDreamStory(
@@ -24,7 +27,7 @@ export async function readDreamStory(
   const dream = await readDream(client, dreamId);
   if (!dream) return null;
   const scenes = await readScenes(client, dreamId);
-  const storyScenes = await attachSelectedImages(client, scenes);
+  const storyScenes = await attachSceneVersions(client, scenes);
   return dreamStorySchema.parse({
     id: dream.id, status: dream.status, title: dream.title, summary: dream.summary,
     inputMode: dream.input_mode, transcript: dream.transcript,
@@ -46,32 +49,47 @@ async function readScenes(client: SupabaseClient<Database>, dreamId: string) {
   return parseDatabaseRows(sceneRowSchema, result.data);
 }
 
-async function attachSelectedImages(
+async function attachSceneVersions(
   client: SupabaseClient<Database>,
   scenes: readonly z.infer<typeof sceneRowSchema>[],
 ): Promise<StoryScene[]> {
   if (scenes.length === 0) return [];
-  const versions = await readSelectedVersions(client, scenes.map((scene) => scene.id));
-  return Promise.all(scenes.map((scene) => attachImage(client, scene, versions)));
+  const versions = await readSceneVersions(client, scenes.map((scene) => scene.id));
+  return Promise.all(scenes.map((scene) => attachVersions(client, scene, versions)));
 }
 
-async function readSelectedVersions(client: SupabaseClient<Database>, sceneIds: readonly string[]) {
-  const result = await client.from("scene_versions").select("id,scene_id,storage_path")
-    .in("scene_id", sceneIds).eq("is_selected", true);
+async function readSceneVersions(client: SupabaseClient<Database>, sceneIds: readonly string[]) {
+  const result = await client.from("scene_versions").select(VERSION_FIELDS)
+    .in("scene_id", sceneIds).order("created_at");
   throwIfDatabaseError(result.error);
   return parseDatabaseRows(versionRowSchema, result.data);
 }
 
-async function attachImage(
+async function attachVersions(
   client: SupabaseClient<Database>,
   scene: z.infer<typeof sceneRowSchema>,
   versions: readonly z.infer<typeof versionRowSchema>[],
 ): Promise<StoryScene> {
-  const version = versions.find((candidate) => candidate.scene_id === scene.id);
-  if (!version) return { ...scene, versionId: null, imageUrl: null };
-  const result = await client.storage.from("dream-images").createSignedUrl(version.storage_path, 600);
+  const matching = versions.filter((version) => version.scene_id === scene.id);
+  const storyVersions = await Promise.all(matching.map((version) => attachVersionImage(client, version)));
+  const selected = storyVersions.find((version) => version.isSelected);
+  return { ...scene, versionId: selected?.id ?? null, imageUrl: selected?.imageUrl ?? null, versions: storyVersions };
+}
+
+async function attachVersionImage(
+  client: SupabaseClient<Database>,
+  version: z.infer<typeof versionRowSchema>,
+) {
+  const imageUrl = version.storage_path ? await signImage(client, version.storage_path) : null;
+  return { id: version.id, parentVersionId: version.parent_version_id,
+    editInstruction: version.edit_instruction, status: version.status,
+    isSelected: version.is_selected, imageUrl };
+}
+
+async function signImage(client: SupabaseClient<Database>, path: string): Promise<string> {
+  const result = await client.storage.from("dream-images").createSignedUrl(path, 600);
   throwIfDatabaseError(result.error);
-  return { ...scene, versionId: version.id, imageUrl: z.url().parse(result.data?.signedUrl) };
+  return z.url().parse(result.data?.signedUrl);
 }
 
 function needsTranscriptReview(dream: z.infer<typeof dreamRowSchema>): boolean {
@@ -80,3 +98,4 @@ function needsTranscriptReview(dream: z.infer<typeof dreamRowSchema>): boolean {
 }
 
 const DREAM_FIELDS = "id,status,input_mode,transcript,workflow_run_id,title,summary,mood,failed_stage,error_code";
+const VERSION_FIELDS = "id,scene_id,parent_version_id,storage_path,edit_instruction,status,is_selected";

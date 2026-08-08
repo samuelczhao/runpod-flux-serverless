@@ -5,6 +5,7 @@ import {
   submitTranscriptionStep,
 } from "@/workflows/steps/transcription";
 import { failDreamStep } from "@/workflows/steps/finalize";
+import { cancelGenerationJobStep } from "@/workflows/steps/cancel";
 
 const POLL_INTERVAL = "5s";
 const MAX_POLLS = 120;
@@ -31,5 +32,6 @@ async function waitForTranscription(jobId: string): Promise<void> {
     if (state === "failed") throw new Error("Runpod transcription failed");
     if (attempt < MAX_POLLS - 1) await sleep(POLL_INTERVAL);
   }
+  if (await cancelGenerationJobStep(jobId) === "completed") return;
   throw new Error("Runpod transcription timed out");
 }

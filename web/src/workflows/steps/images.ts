@@ -10,7 +10,7 @@ import {
 import { ensureInitialVersion, getScene, getSelectedVersion } from "@/lib/database/scenes";
 import { createDreamImageUrl } from "@/lib/database/storage";
 import { buildAnchorInput } from "@/lib/runpod/anchor";
-import { buildKontextInput } from "@/lib/runpod/kontext";
+import { buildKontextInput, buildKontextRequestIdentity } from "@/lib/runpod/kontext";
 import { submitQueueJob } from "@/lib/runpod/queue";
 import { recordSubmissionFailure } from "@/lib/runpod/submission";
 
@@ -25,8 +25,11 @@ export async function submitAnchorStep(dreamId: string): Promise<string> {
   const version = await ensureInitialVersion(scene, ANCHOR_MODEL);
   const prompt = visualPrompt(dream.visual_bible, scene.prompt);
   const input = buildAnchorInput({ prompt, seed: requireSeed(version.seed) });
-  const claim = await claimImageJob(dream.user_id, dreamId, version.id, "anchor", ANCHOR_MODEL, input);
-  return submitClaimedJob(claim, getRunpodEnv().fluxEndpointId, input);
+  const endpointId = getRunpodEnv().fluxEndpointId;
+  const claim = await claimImageJob(
+    dream.user_id, dreamId, version.id, "anchor", ANCHOR_MODEL, endpointId, { endpointId, input },
+  );
+  return submitClaimedJob(claim, endpointId, input);
 }
 
 export async function submitSceneStep(dreamId: string, ordinal: 2 | 3): Promise<string> {
@@ -40,11 +43,14 @@ export async function submitSceneStep(dreamId: string, ordinal: 2 | 3): Promise<
   if (!anchor.storage_path) throw new Error("Anchor image is missing");
   const seed = requireSeed(version.seed);
   const prompt = visualPrompt(dream.visual_bible, scene.prompt);
-  const identity = { prompt, anchorPath: anchor.storage_path, seed, version: "kontext-v1" };
-  const claim = await claimImageJob(dream.user_id, dreamId, version.id, "scene", KONTEXT_MODEL, identity);
+  const endpointId = getRunpodEnv().kontextEndpointId;
+  const identity = buildKontextRequestIdentity({ prompt, imageStoragePath: anchor.storage_path, seed });
+  const claim = await claimImageJob(
+    dream.user_id, dreamId, version.id, "scene", KONTEXT_MODEL, endpointId, { endpointId, identity },
+  );
   if (!claim.claimed) return resumeImageClaim(claim);
   const input = buildKontextInput({ prompt, imageUrl: await createDreamImageUrl(anchor.storage_path), seed });
-  return submitClaimedJob(claim, getRunpodEnv().kontextEndpointId, input);
+  return submitClaimedJob(claim, endpointId, input);
 }
 
 async function claimImageJob(
@@ -53,11 +59,12 @@ async function claimImageJob(
   versionId: string,
   stage: "anchor" | "scene",
   model: string,
+  endpointId: string,
   identity: Readonly<Record<string, unknown>>,
 ): Promise<JobClaim> {
   return claimGenerationJob({
     userId, dreamId, sceneVersionId: versionId, stage,
-    operationKey: `${stage}:${versionId}:v1`, model, requestHash: hashJson(identity),
+    operationKey: `${stage}:${versionId}:v1`, model, endpointId, requestHash: hashJson(identity),
   });
 }
 

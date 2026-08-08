@@ -12,6 +12,12 @@ export interface KontextInput {
   readonly seed?: number;
 }
 
+export interface KontextIdentityInput {
+  readonly prompt: string;
+  readonly imageStoragePath: string;
+  readonly seed: number;
+}
+
 export interface KontextOutput {
   readonly imageUrl: string;
   readonly cost: number | undefined;
@@ -19,15 +25,17 @@ export interface KontextOutput {
 
 export function buildKontextInput(input: KontextInput): Readonly<Record<string, unknown>> {
   return {
-    prompt: z.string().trim().min(1).max(2_000).parse(input.prompt),
+    ...kontextParameters(input.prompt, input.seed),
     image: requireHttpsUrl(input.imageUrl),
-    negative_prompt: "text, watermark, duplicate subjects",
-    seed: input.seed ?? -1,
-    num_inference_steps: 28,
-    guidance: 2,
-    size: "1024*1024",
-    output_format: "png",
-    enable_safety_checker: true,
+  };
+}
+
+export function buildKontextRequestIdentity(
+  input: KontextIdentityInput,
+): Readonly<Record<string, unknown>> {
+  return {
+    ...kontextParameters(input.prompt, input.seed),
+    image_storage_path: z.string().trim().min(1).parse(input.imageStoragePath),
   };
 }
 
@@ -53,4 +61,17 @@ function requireHttpsUrl(value: string): string {
     throw new Error("Runpod image URL must use HTTPS");
   }
   return url.toString();
+}
+
+function kontextParameters(prompt: string, seed: number | undefined): Readonly<Record<string, unknown>> {
+  return {
+    prompt: z.string().trim().min(1).max(2_000).parse(prompt),
+    negative_prompt: "text, watermark, duplicate subjects",
+    seed: seed ?? -1,
+    num_inference_steps: 28,
+    guidance: 2,
+    size: "1024*1024",
+    output_format: "png",
+    enable_safety_checker: true,
+  };
 }

@@ -2,8 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { dreamStorySchema, type DreamStory } from "@/lib/domain/story";
+import { SceneCard } from "@/app/dream/[dreamId]/SceneCard";
 
 const STAGES = [
   ["PLANNING", "Finding the story"],
@@ -74,13 +74,8 @@ function StoryView({ story }: { readonly story: DreamStory }) {
       <header className="story-header"><p className="eyebrow">Your dream trace</p><h1>{story.title}</h1><p>{story.summary}</p>
         <div className="mood-row">{story.mood.map((mood) => <span key={mood}>{mood}</span>)}</div>
       </header>
-      <div className="scene-strip">{story.scenes.map((scene) => (
-        <article className="scene-card" key={scene.id}>
-          {scene.imageUrl ? <Image alt={scene.caption} height={1024} src={scene.imageUrl} unoptimized width={1024} />
-            : <div className="image-placeholder" />}
-          <div><span>Scene {scene.ordinal}</span><p>{scene.caption}</p></div>
-        </article>
-      ))}</div>
+      <div className="scene-strip">{story.scenes.map((scene) =>
+        <SceneCard dreamId={story.id} key={scene.id} scene={scene} />)}</div>
       <div className="story-actions"><Link className="button ghost" href="/capture">Trace another</Link>
         <Link className="button primary" href="/journal">Open journal</Link></div>
     </section>

@@ -30,10 +30,12 @@ export const scenePlanSchema = z.object({
   prompt: z.string().trim().min(1).max(2_000),
 }).strict();
 
+const moodLabelSchema = z.string().trim().min(1).max(40).regex(/[A-Za-z]/);
+
 export const dreamPlanSchema = z.object({
   title: z.string().trim().min(1).max(120),
   summary: z.string().trim().min(1).max(600),
-  mood: z.array(z.string().trim().min(1).max(40)).min(1).max(6),
+  mood: z.array(moodLabelSchema).min(1).max(6),
   motifs: z.array(motifSchema).min(1).max(8),
   visual_bible: z.string().trim().min(1).max(1_200),
   scenes: z.array(scenePlanSchema).length(3),

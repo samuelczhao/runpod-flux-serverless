@@ -15,6 +15,7 @@ export interface JobClaimInput {
   readonly stage: string;
   readonly operationKey: string;
   readonly model: string;
+  readonly endpointId: string;
   readonly requestHash: string;
 }
 
@@ -35,7 +36,8 @@ export async function claimGenerationJob(input: JobClaimInput): Promise<JobClaim
   const result = await createSupabaseAdminClient().rpc("claim_generation_job", {
     p_user_id: input.userId, p_dream_id: input.dreamId,
     p_scene_version_id: input.sceneVersionId, p_stage: input.stage,
-    p_operation_key: input.operationKey, p_model: input.model, p_request_hash: input.requestHash,
+    p_operation_key: input.operationKey, p_model: input.model,
+    p_endpoint_id: input.endpointId, p_request_hash: input.requestHash,
   });
   throwIfDatabaseError(result.error);
   const row = parseDatabaseRows(claimSchema, result.data)[0];
@@ -46,6 +48,13 @@ export async function claimGenerationJob(input: JobClaimInput): Promise<JobClaim
 export async function getGenerationJob(jobId: string): Promise<GenerationJob> {
   const result = await createSupabaseAdminClient().from("generation_jobs")
     .select(JOB_FIELDS).eq("id", jobId).single();
+  throwIfDatabaseError(result.error);
+  return parseDatabaseRow(jobSchema, result.data);
+}
+
+export async function getGenerationJobByVersion(versionId: string): Promise<GenerationJob> {
+  const result = await createSupabaseAdminClient().from("generation_jobs")
+    .select(JOB_FIELDS).eq("scene_version_id", versionId).single();
   throwIfDatabaseError(result.error);
   return parseDatabaseRow(jobSchema, result.data);
 }
@@ -94,4 +103,4 @@ export async function completeTranscriptionJob(
   throwIfDatabaseError(result.error);
 }
 
-const JOB_FIELDS = "id,user_id,dream_id,scene_version_id,stage,model,external_job_id,status,request_hash";
+const JOB_FIELDS = "id,user_id,dream_id,scene_version_id,stage,model,endpoint_id,external_job_id,status,request_hash";

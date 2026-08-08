@@ -134,11 +134,34 @@ button, textarea { font: inherit; }
 .scene-card { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; }
 .scene-card img, .image-placeholder { aspect-ratio: 1; display: block; object-fit: cover; width: 100%; }
 .image-placeholder { background: linear-gradient(135deg, rgba(140, 108, 255, 0.15), rgba(242, 163, 189, 0.08)); }
-.scene-card div:last-child { padding: 18px; }
+.scene-copy { padding: 18px; }
 .scene-card span, .journal-card > span { color: var(--violet); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
 .scene-card p { line-height: 1.5; margin: 10px 0 0; }
+.scene-edit-trigger { background: transparent; border: 0; color: var(--rose); cursor: pointer; margin-top: 18px; padding: 0; text-decoration: underline; text-underline-offset: 4px; }
+.branch-form { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 18px; }
+.branch-form label { display: block; font-size: 0.86rem; margin-bottom: 8px; }
+.branch-form textarea { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); border-radius: 12px; color: var(--ink); min-height: 100px; padding: 12px; resize: vertical; width: 100%; }
+.branch-form > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.branch-form .button, .branch-comparison .button { cursor: pointer; padding: 10px 14px; }
+.branch-status { color: var(--muted); font-size: 0.82rem; }
+.branch-comparison { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 18px; }
+.branch-comparison > p { color: var(--muted); font-size: 0.8rem; margin-bottom: 12px; }
+.branch-comparison img { border-radius: 14px; margin-bottom: 12px; }
 .story-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 32px; }
 .journal-header { max-width: 850px; }
+.constellation-panel { background: rgba(255, 255, 255, 0.025); border: 1px solid var(--line); border-radius: 28px; margin-bottom: 34px; overflow: hidden; padding: 30px; }
+.constellation-panel header h2 { font-family: var(--font-display), serif; font-size: clamp(2.2rem, 5vw, 4rem); font-weight: 400; margin: 12px 0; }
+.constellation-panel header > p:last-child, .constellation-empty { color: var(--muted); line-height: 1.6; }
+.constellation-map { background: radial-gradient(circle at center, rgba(140, 108, 255, 0.14), transparent 48%); display: block; margin-top: 20px; max-height: 560px; width: 100%; }
+.constellation-line { stroke: rgba(201, 191, 255, 0.38); stroke-width: 1.5; }
+.constellation-hit { fill: transparent; }
+.constellation-dot { fill: var(--rose); filter: drop-shadow(0 0 8px rgba(242, 163, 189, 0.8)); transition: r 160ms ease; }
+.constellation-star:hover .constellation-dot, .constellation-star:focus .constellation-dot { r: 10px; }
+.constellation-star text { fill: var(--ink); font-size: 14px; }
+.motif-legend { display: flex; flex-wrap: wrap; gap: 10px 18px; list-style: none; margin: 6px 0 0; padding: 0; }
+.motif-legend li { color: var(--muted); font-size: 0.78rem; }
+.motif-legend span { background: var(--rose); border-radius: 50%; display: inline-block; height: 7px; margin-right: 7px; width: 7px; }
+.sr-only { height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; width: 1px; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 .journal-grid { display: grid; gap: 16px; grid-template-columns: repeat(2, 1fr); }
 .journal-card { background: rgba(255, 255, 255, 0.035); border: 1px solid var(--line); border-radius: 22px; min-height: 260px; padding: 28px; transition: border-color 160ms ease, transform 160ms ease; }
 .journal-card:hover { border-color: rgba(140, 108, 255, 0.6); transform: translateY(-3px); }
@@ -151,6 +174,8 @@ button, textarea { font: inherit; }
   .feature-grid { grid-template-columns: 1fr; }
   .feature + .feature { border-left: 0; border-top: 1px solid var(--line); margin-top: 28px; padding-left: 0; }
   .scene-strip, .journal-grid { grid-template-columns: 1fr; }
+  .constellation-panel { padding: 20px; }
+  .constellation-star text { font-size: 18px; }
   .story-actions { justify-content: flex-start; }
   .capture-meta { align-items: flex-start; flex-direction: column; gap: 6px; }
 }

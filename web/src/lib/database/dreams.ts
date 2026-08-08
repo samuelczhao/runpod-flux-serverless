@@ -36,11 +36,12 @@ export async function completeDreamPlan(
   jobId: string,
   plan: DreamPlan,
   planHash: string,
-  costUsd: string,
+  metrics: { readonly p_delay_ms: number | null; readonly p_execution_ms: number | null },
 ): Promise<void> {
   const client = createSupabaseAdminClient();
   const result = await client.rpc("complete_dream_plan", {
-    p_job_id: jobId, p_plan: plan, p_plan_hash: planHash, p_cost_usd: costUsd,
+    p_job_id: jobId, p_plan: plan, p_plan_hash: planHash,
+    p_cost_usd: null, p_cost_source: "unavailable", ...metrics,
   });
   throwIfDatabaseError(result.error);
 }

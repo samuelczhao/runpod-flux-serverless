@@ -14,6 +14,7 @@ const adminSchema = publicSchema.extend({
 const runpodSchema = z.object({
   apiKey: z.string().min(1),
   fluxEndpointId: z.string().min(1),
+  plannerEndpointId: z.string().min(1),
   kontextEndpointId: z.string().min(1),
   whisperEndpointId: z.string().min(1).optional(),
 });
@@ -37,6 +38,7 @@ export function getRunpodEnv(): RunpodEnv {
   return runpodSchema.parse({
     apiKey: process.env.RUNPOD_API_KEY,
     fluxEndpointId: process.env.RUNPOD_ENDPOINT_ID,
+    plannerEndpointId: process.env.RUNPOD_PLANNER_ENDPOINT_ID,
     kontextEndpointId: process.env.RUNPOD_KONTEXT_ENDPOINT_ID || DEFAULT_KONTEXT_ENDPOINT_ID,
     whisperEndpointId: process.env.RUNPOD_WHISPER_ENDPOINT_ID || undefined,
   });

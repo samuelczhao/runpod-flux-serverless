@@ -16,6 +16,10 @@ describe("dream plan contract", () => {
   it("rejects model-invented fields", () => {
     expect(dreamPlanSchema.safeParse({ ...validPlan(), diagnosis: "prophecy" }).success).toBe(false);
   });
+
+  it("rejects numeric placeholders as moods", () => {
+    expect(dreamPlanSchema.safeParse({ ...validPlan(), mood: ["4"] }).success).toBe(false);
+  });
 });
 
 function validPlan(): Record<string, unknown> {

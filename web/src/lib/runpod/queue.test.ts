@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getQueueStatus, submitQueueJob } from "@/lib/runpod/queue";
+import { cancelQueueJob, getQueueStatus, submitQueueJob } from "@/lib/runpod/queue";
 
 describe("Runpod queue client", () => {
   it("submits the exact queue envelope", async () => {
@@ -19,6 +19,16 @@ describe("Runpod queue client", () => {
   it("rejects unknown statuses", async () => {
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({ id: "job-1", status: "MYSTERY" }));
     await expect(getQueueStatus("endpoint", "job-1", "secret", fetcher)).rejects.toThrow();
+  });
+
+  it("cancels a specific queued job", async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ id: "job-1", status: "CANCELLED" }));
+    await expect(cancelQueueJob("endpoint", "job-1", "secret", fetcher)).resolves.toMatchObject({
+      status: "CANCELLED",
+    });
+    expect(fetcher).toHaveBeenCalledWith("https://api.runpod.ai/v2/endpoint/cancel/job-1", expect.objectContaining({
+      method: "POST",
+    }));
   });
 });
 

@@ -49,7 +49,25 @@ type SceneVersionRow = {
   model: string;
   status: JobStatus;
   is_selected: boolean;
+  operation_key: string | null;
+  request_hash: string | null;
+  workflow_run_id: string | null;
+  workflow_claim_token: string | null;
+  workflow_claimed_at: string | null;
   created_at: string;
+}
+
+type MotifRow = {
+  id: string;
+  user_id: string;
+  canonical_label: string;
+  slug: string;
+  kind: "person" | "place" | "object" | "emotion" | "theme";
+}
+
+type DreamMotifRow = {
+  dream_id: string;
+  motif_id: string;
 }
 
 type JobRow = {
@@ -61,6 +79,7 @@ type JobRow = {
   operation_key: string;
   provider: string;
   model: string;
+  endpoint_id: string | null;
   external_job_id: string | null;
   status: JobStatus;
   request_hash: string;
@@ -106,6 +125,8 @@ export type Database = {
       dreams: Table<DreamRow, DreamInsert>;
       scenes: Table<SceneRow>;
       scene_versions: Table<SceneVersionRow, SceneVersionInsert>;
+      motifs: Table<MotifRow>;
+      dream_motifs: Table<DreamMotifRow>;
       generation_jobs: Table<JobRow>;
     };
     Views: Record<never, never>;
@@ -121,7 +142,10 @@ export type Database = {
         p_job_id: string;
         p_plan: Json;
         p_plan_hash: string;
-        p_cost_usd: string;
+        p_cost_usd: string | null;
+        p_cost_source: "provider" | "estimated" | "unavailable";
+        p_delay_ms?: number | null;
+        p_execution_ms?: number | null;
       }>;
       claim_dream_workflow: {
         Args: { p_dream_id: string; p_user_id: string; p_claim_token: string };
@@ -150,6 +174,25 @@ export type Database = {
       };
       mark_audio_deleted: VoidFunction<{ p_dream_id: string; p_storage_path: string }>;
       prepare_audio_deletion: { Args: { p_dream_id: string }; Returns: string | null };
+      create_scene_branch: {
+        Args: {
+          p_user_id: string;
+          p_dream_id: string;
+          p_parent_version_id: string;
+          p_instruction: string;
+          p_model: string;
+          p_seed: number;
+          p_operation_key: string;
+          p_request_hash: string;
+        };
+        Returns: { version_id: string; claimed: boolean }[];
+      };
+      select_scene_version: VoidFunction<{
+        p_user_id: string;
+        p_scene_id: string;
+        p_expected_version_id: string;
+        p_next_version_id: string;
+      }>;
       finalize_dream: VoidFunction<{ p_dream_id: string }>;
       claim_generation_job: {
         Args: {
@@ -159,6 +202,7 @@ export type Database = {
           p_stage: string;
           p_operation_key: string;
           p_model: string;
+          p_endpoint_id: string;
           p_request_hash: string;
         };
         Returns: {
@@ -169,6 +213,14 @@ export type Database = {
         }[];
       };
       record_generation_submission: VoidFunction<{ p_job_id: string; p_external_id: string }>;
+      claim_branch_workflow: {
+        Args: { p_user_id: string; p_version_id: string; p_claim_token: string };
+        Returns: { workflow_id: string | null; claimed: boolean }[];
+      };
+      record_branch_workflow: VoidFunction<{
+        p_version_id: string; p_claim_token: string; p_run_id: string;
+      }>;
+      release_branch_workflow_claim: VoidFunction<{ p_version_id: string; p_claim_token: string }>;
       update_generation_job: VoidFunction<{
         p_job_id: string;
         p_expected: JobStatus;
