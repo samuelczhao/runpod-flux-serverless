@@ -153,7 +153,7 @@ make test
 make lint
 ```
 
-The required order is typecheck, tests, then lint. The current suite contains 53 unit
+The required order is typecheck, tests, then lint. The current suite contains 54 unit
 tests. These tests do not download the gated model or require a GPU.
 
 The product app has a separate verification sequence:
@@ -166,11 +166,12 @@ pnpm lint
 pnpm build
 ```
 
-The web suite currently contains 208 GPU-free unit tests plus an opt-in linked-database
-recovery test. The database fixture verifies idempotent audio preparation, atomic branch
+The web suite currently contains 223 GPU-free unit tests plus opt-in linked-database
+recovery and quota tests. The fixtures verify idempotent audio preparation, atomic branch
 and dream recovery, terminal branch retry, duplicate text and workflow claims, audio
-format binding, Dream Self lifecycle, NULL identity guards, completion, and cross-user
-RLS isolation, then deletes its anonymous users and one-pixel artifacts.
+format binding, Dream Self lifecycle, NULL identity guards, completion, cross-user RLS
+isolation, concurrent admission ceilings, and replay without double charging. They delete
+their anonymous users and one-pixel artifacts after each run.
 
 ## Deploy and invoke
 

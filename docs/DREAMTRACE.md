@@ -36,6 +36,8 @@ GPU platform behind one API call.
 - A generation job stores model, endpoint ID, stable request hash, provider job ID,
   state, timings, and cost provenance.
 - Provider request hashes use stable storage identities, not expiring signed URL bytes.
+- Private story links are renewed ten minutes before their one-hour expiry. Rapid workflow
+  polls preserve the current URL to avoid image flicker; renewal polls replace it.
 - Dream Self consent is versioned and recorded. New stories cannot use an expired
   reference; the original upload is deleted after normalization, and provider links last
   15 minutes.
@@ -43,6 +45,9 @@ GPU platform behind one API call.
   delayed tombstone sweep cover source, normalized, and late-race objects.
 - Branch workflow claims prevent replayed API requests from starting duplicate durable
   workflows.
+- Atomic database counters cap each journal at two active dreams and six new dreams per
+  UTC hour, with a durable 100-dream global UTC-day ceiling. Idempotent replays are checked
+  before quota reservation and never consume a second allocation.
 - Failed or cancelled scene edits are terminal and can be retried with a new operation;
   an unknown submission outcome stops polling and is never blindly resubmitted.
 - Catchable failures atomically release the matching workflow claim or run while the
@@ -134,6 +139,14 @@ enforcement, and foreign-user isolation, then removes its fixtures:
 
 ```bash
 DREAMTRACE_DB_INTEGRATION=1 pnpm --dir web test:db:branch-recovery
+```
+
+The separate quota fixture verifies concurrent mixed text/audio admission, idempotent
+replay without double charging, stale-workflow protection, active and hourly ceilings,
+and durable usage counters:
+
+```bash
+DREAMTRACE_DB_INTEGRATION=1 pnpm --dir web test:db:quotas
 ```
 
 ## Paid end-to-end demo seed

@@ -15,7 +15,7 @@ Current local evidence:
 | Check | Result |
 | --- | --- |
 | mypy strict | Passed, 14 source files |
-| pytest | Passed, 53 tests |
+| pytest | Passed, 54 tests |
 | Ruff | Passed |
 
 The unit suite covers default and boundary inputs, malformed types, booleans as integers,
@@ -159,7 +159,7 @@ The GPU-free web suite covers normalization limits and metadata removal, version
 consent, signed-upload response projection, stored/ready replay, source cleanup replay,
 ambiguous database completion, deterministic tombstone cleanup, provider-URL signing
 before job claim, stable request hashing, style/identity audio retry behavior, and prompt
-budget preservation. Current local result: 42 files and 208 tests passed, followed by
+budget preservation. Current local result: 43 files and 223 tests passed, followed by
 zero-warning ESLint and a successful Next.js Production build.
 
 Together, the GPU-free suite, linked-project fixture, and live synthetic-portrait run
@@ -181,6 +181,24 @@ pose-level action fidelity remains a known model-quality limitation.
 Identity quality is a visual acceptance criterion, not a unit-test claim. Keep recording
 fixture provenance, prompt, style, selected images, Runpod timings, and exact release
 commit without committing the face image or signed URLs.
+
+## Public-demo admission controls
+
+The database is the authoritative GPU-allocation boundary. It allows at most two active
+or freshly prepared dreams per journal, six new dreams per journal per UTC hour, and 100
+new dreams across the demo per UTC day. Exact operation replays return the original dream
+without consuming another slot. The global counter is durable even when an anonymous
+user is deleted, so creating a new browser session cannot bypass the daily cost ceiling.
+
+After applying migrations, run the opt-in linked verifier with a service credential:
+
+```bash
+DREAMTRACE_DB_INTEGRATION=1 pnpm --dir web test:db:quotas
+```
+
+It exercises concurrent text/audio admission, replay and conflict precedence, stale
+workflow claims, active and hourly denial codes, durable counters, and fixture cleanup.
+It consumes six slots from the current global day but does not call a GPU.
 
 ## Queue check
 

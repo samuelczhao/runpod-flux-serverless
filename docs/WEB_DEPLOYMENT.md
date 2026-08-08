@@ -104,6 +104,18 @@ anonymous-session checks.
 If Git is connected later, use a fully isolated Preview for staged acceptance before
 merging; merging `main` then publishes Production automatically and replaces steps 2–6.
 
+## Abuse controls
+
+Supabase is the authoritative admission boundary: two active dreams per journal, six new
+dreams per journal per UTC hour, and 100 new dreams globally per UTC day. These counters
+are atomic across Vercel instances and exact operation replays do not consume another
+slot. Verify them with `pnpm --dir web test:db:quotas` after applying migrations.
+
+Vercel Firewall may add a coarse IP burst signal as a secondary layer. Begin with a
+log-only draft, inspect legitimate presentation traffic, and publish enforcement only
+after the threshold is justified. A staged rule is not active protection and must never
+be described as one.
+
 ## Rollback
 
 For a CLI-based first release, do not promote a failing `--skip-domain` deployment; fix
