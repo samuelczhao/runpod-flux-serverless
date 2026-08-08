@@ -35,13 +35,15 @@ export async function POST(_request: Request, context: RouteContext): Promise<Re
     }
     const normalized = await normalizeIdentityImage(
       await downloadIdentitySource(reference.upload_path),
+      reference.source_mime_type,
     );
     const path = await storeNormalizedIdentity(userId, identityId, normalized);
     try {
       await completeIdentityReference(userId, identityId, path, normalized);
     } catch (error: unknown) {
-      const reconciled = await reconcileCompletion(userId, identityId, path, normalized);
-      if (!reconciled) throw error;
+      const reconciliation = await reconcileCompletion(userId, identityId, path, normalized);
+      if (reconciliation === "rejected") await deleteIdentityObjects([path]);
+      if (reconciliation !== "committed") throw error;
     }
     await deleteSource(userId, identityId, reference.upload_path);
     return previewResponse(identityId, path);
@@ -65,18 +67,25 @@ async function reconcileCompletion(
   identityId: string,
   path: string,
   image: Awaited<ReturnType<typeof normalizeIdentityImage>>,
-): Promise<boolean> {
-  let reference: IdentityReference;
+): Promise<"committed" | "rejected" | "unknown"> {
+  let reference: IdentityReference | null;
   try {
-    reference = await requireReference(userId, identityId);
+    reference = await getIdentityReference(userId, identityId);
   } catch {
-    return false;
+    return "unknown";
   }
-  if (reference.status === "READY" && reference.storage_path === path
+  if (!reference) return "rejected";
+  return completionMatches(reference, path, image) ? "committed" : "rejected";
+}
+
+function completionMatches(
+  reference: IdentityReference,
+  path: string,
+  image: Awaited<ReturnType<typeof normalizeIdentityImage>>,
+): boolean {
+  return reference.status === "READY" && reference.storage_path === path
     && reference.size_bytes === image.bytes.length && reference.width === image.width
-    && reference.height === image.height && reference.content_sha256 === image.sha256) return true;
-  await deleteIdentityObjects([path]).catch(() => undefined);
-  return false;
+    && reference.height === image.height && reference.content_sha256 === image.sha256;
 }
 
 async function requireReference(userId: string, identityId: string): Promise<IdentityReference> {

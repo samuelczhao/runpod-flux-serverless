@@ -83,6 +83,19 @@ it("removes the normalized object when the database commit fails", async () => {
   expect(mocks.deleteObjects).toHaveBeenCalledWith([REFERENCE_PATH]);
 });
 
+it("preserves the normalized object while a lost completion remains unknown", async () => {
+  mocks.getReference
+    .mockResolvedValueOnce(reference("PENDING", SOURCE_PATH))
+    .mockRejectedValueOnce(new Error("database unavailable"));
+  mocks.complete.mockRejectedValue(new Error("response lost"));
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+  const response = await POST(new Request("https://dreamtrace.test"), context());
+
+  expect(response.status).toBe(503);
+  expect(mocks.deleteObjects).not.toHaveBeenCalledWith([REFERENCE_PATH]);
+});
+
 it("preserves a committed object when the completion response is lost", async () => {
   mocks.getReference
     .mockResolvedValueOnce(reference("PENDING", SOURCE_PATH))

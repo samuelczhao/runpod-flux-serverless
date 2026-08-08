@@ -6,7 +6,14 @@ import {
   MAX_IDENTITY_IMAGE_DIMENSION,
   MAX_IDENTITY_INPUT_PIXELS,
   MIN_IDENTITY_IMAGE_DIMENSION,
+  type IdentityMimeType,
 } from "@/lib/domain/identity";
+
+const INPUT_FORMAT_MIME: Readonly<Record<string, IdentityMimeType>> = {
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
 
 export interface NormalizedIdentityImage {
   readonly bytes: Buffer;
@@ -22,15 +29,24 @@ export class IdentityImageError extends Error {
   }
 }
 
-export async function normalizeIdentityImage(source: Buffer): Promise<NormalizedIdentityImage> {
+export async function normalizeIdentityImage(
+  source: Buffer,
+  claimedMimeType: IdentityMimeType,
+): Promise<NormalizedIdentityImage> {
   if (source.length === 0 || source.length > MAX_IDENTITY_IMAGE_BYTES) {
     throw new IdentityImageError("Photo must be between 1 byte and 8 MB");
   }
   try {
-    const result = await sharp(source, {
+    const image = sharp(source, {
       failOn: "warning",
       limitInputPixels: MAX_IDENTITY_INPUT_PIXELS,
-    })
+    });
+    const metadata = await image.metadata();
+    const decodedMimeType = metadata.format ? INPUT_FORMAT_MIME[metadata.format] : undefined;
+    if (!decodedMimeType || decodedMimeType !== claimedMimeType) {
+      throw new IdentityImageError("Photo format does not match its declared type");
+    }
+    const result = await image
       .rotate()
       .resize({
         width: MAX_IDENTITY_IMAGE_DIMENSION,
