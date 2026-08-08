@@ -79,11 +79,11 @@ button, textarea { font: inherit; }
   color: var(--ink);
   font: 1.1rem/1.75 var(--font-body), sans-serif;
   min-height: 260px;
-  outline: 0;
   resize: vertical;
   width: 100%;
 }
-.capture-card textarea::placeholder { color: #736d7e; }
+.capture-card textarea::placeholder { color: #8e8798; }
+.capture-card textarea:focus-visible { outline: 3px solid var(--rose); outline-offset: 4px; }
 .capture-meta { color: var(--muted); display: flex; font-size: 0.76rem; justify-content: space-between; margin: 13px 0 26px; }
 .capture-card button { cursor: pointer; font: inherit; }
 .capture-card button:disabled { cursor: wait; opacity: 0.55; }
@@ -120,7 +120,7 @@ button, textarea { font: inherit; }
 }
 @keyframes drift { 50% { border-radius: 55% 45% 44% 56%; transform: translateY(-10px) rotate(8deg); } }
 .stage-list { display: grid; gap: 15px; list-style: none; margin: 32px 0 0; padding: 0; }
-.stage-list li { align-items: center; color: #625d6c; display: flex; gap: 12px; transition: color 200ms ease; }
+.stage-list li { align-items: center; color: #8b8495; display: flex; gap: 12px; transition: color 200ms ease; }
 .stage-list li span { border: 1px solid currentColor; border-radius: 50%; height: 9px; width: 9px; }
 .stage-list li.active { color: var(--rose); }
 .stage-list li.done { color: var(--muted); }
@@ -144,6 +144,7 @@ button, textarea { font: inherit; }
 .branch-form > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .branch-form .button, .branch-comparison .button { cursor: pointer; padding: 10px 14px; }
 .branch-status { color: var(--muted); font-size: 0.82rem; }
+.poll-warning { color: var(--rose); margin: 0 0 24px; }
 .branch-comparison { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 18px; }
 .branch-comparison > p { color: var(--muted); font-size: 0.8rem; margin-bottom: 12px; }
 .branch-comparison img { border-radius: 14px; margin-bottom: 12px; }

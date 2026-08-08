@@ -1,15 +1,17 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { start } from "workflow/api";
+import { getRun, start } from "workflow/api";
 import {
   claimAudioPlanWorkflow,
   claimDreamWorkflow,
-  recordDreamWorkflow,
-  releaseDreamWorkflow,
+  releaseDreamWorkflowExecution,
   type WorkflowClaim,
 } from "@/lib/database/dreams";
 import { generateDreamWorkflow } from "@/workflows/generate-dream";
+import { shouldReleaseWorkflow, type ExistingRunState } from "@/workflows/run-recovery";
 import { transcribeDreamWorkflow } from "@/workflows/transcribe-dream";
+
+const MAX_CLAIM_ATTEMPTS = 2;
 
 export class DreamAccessError extends Error {
   public constructor() {
@@ -19,22 +21,18 @@ export class DreamAccessError extends Error {
 }
 
 export interface DreamStartResult {
-  readonly runId: string;
+  readonly runId: string | null;
   readonly started: boolean;
 }
 
 export async function startDreamGeneration(dreamId: string, userId: string): Promise<DreamStartResult> {
-  const token = randomUUID();
-  const claim = await claimDreamWorkflow(dreamId, userId, token);
-  if (!claim) throw new DreamAccessError();
-  if (!claim.claimed) return { runId: claim.workflowId, started: false };
-  return startClaimedDream(dreamId, token, "generation");
+  return startRecoverableDream(dreamId, "generation", (token) =>
+    claimDreamWorkflow(dreamId, userId, token));
 }
 
 export async function startDreamTranscription(dreamId: string, userId: string): Promise<DreamStartResult> {
-  const token = randomUUID();
-  const claim = await claimDreamWorkflow(dreamId, userId, token);
-  return startClaim(dreamId, token, claim, "transcription");
+  return startRecoverableDream(dreamId, "transcription", (token) =>
+    claimDreamWorkflow(dreamId, userId, token));
 }
 
 export async function startAudioGeneration(
@@ -42,20 +40,36 @@ export async function startAudioGeneration(
   userId: string,
   transcript: string,
 ): Promise<DreamStartResult> {
-  const token = randomUUID();
-  const claim = await claimAudioPlanWorkflow(dreamId, userId, transcript, token);
-  return startClaim(dreamId, token, claim, "generation");
+  return startRecoverableDream(dreamId, "generation", (token) =>
+    claimAudioPlanWorkflow(dreamId, userId, transcript, token));
 }
 
-async function startClaim(
+async function startRecoverableDream(
   dreamId: string,
-  token: string,
-  claim: WorkflowClaim | null,
   kind: "generation" | "transcription",
+  claimWorkflow: (token: string) => Promise<WorkflowClaim | null>,
 ): Promise<DreamStartResult> {
+  for (let attempt = 0; attempt < MAX_CLAIM_ATTEMPTS; attempt += 1) {
+    const result = await claimOrRecoverDream(dreamId, kind, claimWorkflow);
+    if (result) return result;
+  }
+  throw new Error("Dream workflow could not be reclaimed");
+}
+
+async function claimOrRecoverDream(
+  dreamId: string,
+  kind: "generation" | "transcription",
+  claimWorkflow: (token: string) => Promise<WorkflowClaim | null>,
+): Promise<DreamStartResult | null> {
+  const token = randomUUID();
+  const claim = await claimWorkflow(token);
   if (!claim) throw new DreamAccessError();
-  if (!claim.claimed) return { runId: claim.workflowId, started: false };
-  return startClaimedDream(dreamId, token, kind);
+  if (claim.claimed) return startClaimedDream(dreamId, token, kind);
+  if (!claim.workflowId) return { runId: null, started: false };
+  const state = await getExistingRunState(claim.workflowId);
+  if (!shouldReleaseWorkflow(state)) return { runId: claim.workflowId, started: false };
+  await releaseDreamWorkflowExecution(dreamId, token, claim.workflowId);
+  return null;
 }
 
 async function startClaimedDream(
@@ -63,18 +77,19 @@ async function startClaimedDream(
   token: string,
   kind: "generation" | "transcription",
 ): Promise<DreamStartResult> {
-  const run = await startWorkflow(dreamId, token, kind);
-  await recordDreamWorkflow(dreamId, token, run.runId);
-  return { runId: run.runId, started: true };
-}
-
-async function startWorkflow(dreamId: string, token: string, kind: "generation" | "transcription") {
   try {
-    return kind === "generation"
-      ? await start(generateDreamWorkflow, [dreamId])
-      : await start(transcribeDreamWorkflow, [dreamId]);
+    const run = kind === "generation"
+      ? await start(generateDreamWorkflow, [dreamId, token])
+      : await start(transcribeDreamWorkflow, [dreamId, token]);
+    return { runId: run.runId, started: true };
   } catch (error: unknown) {
-    await releaseDreamWorkflow(dreamId, token);
+    await releaseDreamWorkflowExecution(dreamId, token, token);
     throw error;
   }
+}
+
+async function getExistingRunState(runId: string): Promise<ExistingRunState> {
+  const run = getRun(runId);
+  if (!(await run.exists)) return "missing";
+  return await run.status;
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { AudioCapture } from "@/app/capture/AudioCapture";
 
-const createResponseSchema = z.object({ dreamId: z.uuid(), runId: z.string() }).strict();
+const createResponseSchema = z.object({ dreamId: z.uuid(), runId: z.string().nullable() }).strict();
 
 export function CaptureClient(): ReactElement {
   const router = useRouter();
@@ -17,10 +17,12 @@ export function CaptureClient(): ReactElement {
   const [submitting, setSubmitting] = useState(false);
   const [mode, setMode] = useState<"speak" | "type">("speak");
   const [audioBusy, setAudioBusy] = useState(false);
+  const textAttempt = useRef<TextAttempt | null>(null);
   const updateAudioBusy = useCallback((busy: boolean) => setAudioBusy(busy), []);
   useEffect(() => { void prepareAnonymousSession(setReady, setSessionError); }, []);
   const submit = (event: FormEvent<HTMLFormElement>) => void submitCapture(
-    event, transcript, (path) => router.push(path), setSubmitting, setError,
+    event, transcript, operationIdFor(textAttempt, transcript),
+    (path) => router.push(path), setSubmitting, setError,
   );
   return <><CaptureModeSwitch disabled={audioBusy} mode={mode} setMode={setMode} />
     {sessionError ? <p className="form-error" role="alert">{sessionError}</p> : null}
@@ -84,9 +86,10 @@ async function prepareAnonymousSession(
   onReady(true);
 }
 
-async function createDream(transcript: string) {
+async function createDream(transcript: string, operationId: string) {
   const response = await fetch("/api/dreams", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transcript }),
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transcript, operationId }),
   });
   const payload = await response.json() as unknown;
   if (!response.ok) throw new Error(errorMessage(payload));
@@ -96,6 +99,7 @@ async function createDream(transcript: string) {
 async function submitCapture(
   event: FormEvent<HTMLFormElement>,
   transcript: string,
+  operationId: string,
   navigate: (path: string) => void,
   setSubmitting: (value: boolean) => void,
   setError: (value: string | null) => void,
@@ -104,11 +108,24 @@ async function submitCapture(
   setSubmitting(true);
   setError(null);
   try {
-    navigate(`/dream/${(await createDream(transcript)).dreamId}`);
+    navigate(`/dream/${(await createDream(transcript, operationId)).dreamId}`);
   } catch (cause: unknown) {
     setError(cause instanceof Error ? cause.message : "Dream generation could not start");
     setSubmitting(false);
   }
+}
+
+interface TextAttempt {
+  readonly transcript: string;
+  readonly operationId: string;
+}
+
+function operationIdFor(ref: React.RefObject<TextAttempt | null>, transcript: string): string {
+  const normalized = transcript.trim();
+  if (ref.current?.transcript !== normalized) {
+    ref.current = { transcript: normalized, operationId: crypto.randomUUID() };
+  }
+  return ref.current.operationId;
 }
 
 function errorMessage(payload: unknown): string {

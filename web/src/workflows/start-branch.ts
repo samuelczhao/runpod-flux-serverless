@@ -6,9 +6,9 @@ import {
   releaseBranchWorkflowExecution,
 } from "@/lib/database/scenes";
 import {
-  shouldReleaseBranchWorkflow,
+  shouldReleaseWorkflow,
   type ExistingRunState,
-} from "@/workflows/branch-recovery";
+} from "@/workflows/run-recovery";
 import { generateBranchWorkflow } from "@/workflows/generate-branch";
 
 const MAX_CLAIM_ATTEMPTS = 2;
@@ -39,7 +39,7 @@ async function claimOrRecoverBranch(
   if (claim.claimed) return startClaimedBranch(versionId, token);
   if (!claim.workflowId) return { runId: null, started: false };
   const state = await getExistingRunState(claim.workflowId);
-  if (!shouldReleaseBranchWorkflow(state)) return { runId: claim.workflowId, started: false };
+  if (!shouldReleaseWorkflow(state)) return { runId: claim.workflowId, started: false };
   await releaseBranchWorkflowExecution(versionId, token, claim.workflowId);
   return null;
 }

@@ -46,10 +46,12 @@ function ConstellationLine({ edge, nodes }: {
 }
 
 function ConstellationStar({ node }: { readonly node: ConstellationNode }): ReactElement {
+  const rightAligned = node.x > 760;
   return <a aria-label={`Open ${node.title}`} className="constellation-star" href={`/dream/${node.id}`}>
     <circle className="constellation-hit" cx={node.x} cy={node.y} r="24" />
     <circle className="constellation-dot" cx={node.x} cy={node.y} r="7" />
-    <text x={node.x + 13} y={node.y - 13}>{shortTitle(node.title)}</text>
+    <text textAnchor={rightAligned ? "end" : "start"} x={node.x + (rightAligned ? -13 : 13)}
+      y={node.y - 13}>{shortTitle(node.title)}</text>
   </a>;
 }
 

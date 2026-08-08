@@ -22,6 +22,13 @@ export interface DreamAudioUpload {
   readonly token: string;
 }
 
+export class ProviderArtifactError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "ProviderArtifactError";
+  }
+}
+
 export async function createDreamAudioUpload(
   userId: string,
   dreamId: string,
@@ -96,11 +103,34 @@ export async function createDreamImageUrl(path: string): Promise<string> {
 
 export async function downloadProviderPng(url: string, fetcher: FetchLike = fetch): Promise<Buffer> {
   const response = await fetcher(requireHttps(url));
-  if (!response.ok) throw new Error(`Provider image download failed with HTTP ${response.status}`);
+  if (!response.ok) throw downloadError(response.status);
   rejectOversizedHeader(response.headers.get("content-length"));
-  const bytes = Buffer.from(await response.arrayBuffer());
+  const bytes = await readBoundedBody(response);
   validatePng(bytes);
   return bytes;
+}
+
+function downloadError(status: number): Error {
+  const message = `Provider image download failed with HTTP ${status}`;
+  const permanent = status >= 400 && status < 500 && status !== 408 && status !== 429;
+  return permanent ? new ProviderArtifactError(message) : new Error(message);
+}
+
+async function readBoundedBody(response: Response): Promise<Buffer> {
+  if (!response.body) throw new ProviderArtifactError("Provider image response was empty");
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteCount = 0;
+  while (true) {
+    const result = await reader.read();
+    if (result.done) return Buffer.concat(chunks, byteCount);
+    byteCount += result.value.byteLength;
+    if (byteCount > MAX_IMAGE_BYTES) {
+      await reader.cancel().catch(() => undefined);
+      throw new ProviderArtifactError("PNG exceeds the size limit");
+    }
+    chunks.push(result.value);
+  }
 }
 
 function imagePath(userId: string, dreamId: string, versionId: string): string {
@@ -119,12 +149,14 @@ function requireHttps(value: string): string {
 }
 
 function rejectOversizedHeader(value: string | null): void {
-  if (value && Number(value) > MAX_IMAGE_BYTES) throw new Error("Provider image exceeds the size limit");
+  if (value && Number(value) > MAX_IMAGE_BYTES) {
+    throw new ProviderArtifactError("Provider image exceeds the size limit");
+  }
 }
 
 function validatePng(bytes: Buffer): void {
-  if (bytes.length > MAX_IMAGE_BYTES) throw new Error("PNG exceeds the size limit");
+  if (bytes.length > MAX_IMAGE_BYTES) throw new ProviderArtifactError("PNG exceeds the size limit");
   if (!bytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
-    throw new Error("Image payload is not a PNG");
+    throw new ProviderArtifactError("Image payload is not a PNG");
   }
 }

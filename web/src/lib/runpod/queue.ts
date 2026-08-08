@@ -47,7 +47,7 @@ export async function getQueueStatus(
 ): Promise<QueueStatus> {
   const safeJobId = encodeURIComponent(z.string().min(1).parse(jobId));
   const response = await fetcher(queueUrl(endpointId, `status/${safeJobId}`), { headers: bearerHeaders(apiKey) });
-  return statusSchema.parse(await readJson(response));
+  return parseStatus(await readJson(response), jobId);
 }
 
 export async function cancelQueueJob(
@@ -60,7 +60,13 @@ export async function cancelQueueJob(
   const response = await fetcher(queueUrl(endpointId, `cancel/${safeJobId}`), {
     method: "POST", headers: bearerHeaders(apiKey),
   });
-  return statusSchema.parse(await readJson(response));
+  return parseStatus(await readJson(response), jobId);
+}
+
+function parseStatus(value: unknown, expectedJobId: string): QueueStatus {
+  const status = statusSchema.parse(value);
+  if (status.id !== expectedJobId) throw new Error("Runpod returned a different job ID");
+  return status;
 }
 
 function queueUrl(endpointId: string, route: string): string {

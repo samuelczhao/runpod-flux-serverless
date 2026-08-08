@@ -47,6 +47,7 @@ async function verifyFixture(
   storagePaths: string[],
 ): Promise<void> {
   await assertAudioPreparation(env, admin, userId);
+  await assertTextWorkflowRecovery(admin, userId);
   const fixture = await createFixture(admin, userId, storagePaths);
   await assertNullGuards(env, fixture);
   await assertSingleBranchInvariant(env, admin, fixture);
@@ -55,6 +56,73 @@ async function verifyFixture(
   await assertForeignVersionHidden(env, admin, fixture.versionId);
   await verifyRecovery(admin, fixture);
   console.log("branch_recovery status=COMPLETED");
+}
+
+async function assertTextWorkflowRecovery(admin: AdminClient, userId: string): Promise<void> {
+  const operationId = crypto.randomUUID();
+  const transcript = "A moonlit library floated over a quiet ocean.";
+  const args = { p_user_id: userId, p_operation_key: operationId, p_transcript: transcript };
+  const first = await admin.rpc("prepare_text_dream", args);
+  const replay = await admin.rpc("prepare_text_dream", args);
+  assertNoError(first.error); assertNoError(replay.error);
+  const dreamId = z.uuid().parse(first.data);
+  if (dreamId !== z.uuid().parse(replay.data)) {
+    throw new Error("Text preparation replay created a second dream");
+  }
+  const conflict = await admin.rpc("prepare_text_dream", {
+    ...args, p_transcript: "A different dream cannot reuse the same operation identity.",
+  });
+  if (!conflict.error) throw new Error("Text operation accepted a changed transcript");
+  await assertDreamWorkflowRecovery(admin, dreamId, userId);
+}
+
+async function assertDreamWorkflowRecovery(
+  admin: AdminClient,
+  dreamId: string,
+  userId: string,
+): Promise<void> {
+  const token = crypto.randomUUID();
+  const first = await claimDreamWorkflow(admin, dreamId, userId, token);
+  const duplicate = await claimDreamWorkflow(admin, dreamId, userId, crypto.randomUUID());
+  if (!first.claimed || duplicate.claimed) throw new Error("Dream workflow claim was not exclusive");
+  const runId = `dream-run-${crypto.randomUUID()}`;
+  const recorded = await admin.rpc("record_dream_workflow", {
+    p_dream_id: dreamId, p_claim_token: token, p_run_id: runId,
+  });
+  assertNoError(recorded.error);
+  await releaseDreamExecution(admin, dreamId, crypto.randomUUID(), `wrong-${runId}`);
+  const protectedReplay = await claimDreamWorkflow(admin, dreamId, userId, crypto.randomUUID());
+  if (protectedReplay.workflow_id !== runId) throw new Error("A stale run cleared dream ownership");
+  await releaseDreamExecution(admin, dreamId, token, runId);
+  const recoveryToken = crypto.randomUUID();
+  const recovery = await claimDreamWorkflow(admin, dreamId, userId, recoveryToken);
+  if (!recovery.claimed) throw new Error("A terminal dream workflow could not be reclaimed");
+  await releaseDreamExecution(admin, dreamId, recoveryToken, recoveryToken);
+}
+
+async function claimDreamWorkflow(
+  admin: AdminClient,
+  dreamId: string,
+  userId: string,
+  token: string,
+) {
+  const result = await admin.rpc("claim_dream_workflow", {
+    p_dream_id: dreamId, p_user_id: userId, p_claim_token: token,
+  });
+  assertNoError(result.error);
+  return workflowClaimSchema.array().min(1).parse(result.data)[0];
+}
+
+async function releaseDreamExecution(
+  admin: AdminClient,
+  dreamId: string,
+  token: string,
+  runId: string,
+): Promise<void> {
+  const result = await admin.rpc("release_dream_workflow_execution", {
+    p_dream_id: dreamId, p_claim_token: token, p_run_id: runId,
+  });
+  assertNoError(result.error);
 }
 
 async function assertSingleBranchInvariant(env: Env, admin: AdminClient, fixture: Fixture): Promise<void> {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { shouldReleaseBranchWorkflow } from "@/workflows/branch-recovery";
+import { shouldReleaseWorkflow } from "@/workflows/run-recovery";
 import { BranchAccessError, startBranchGeneration } from "@/workflows/start-branch";
 import { generateBranchWorkflow } from "@/workflows/generate-branch";
 
@@ -33,11 +33,11 @@ beforeEach(() => {
 
 describe("branch workflow recovery", () => {
   it.each(["missing", "failed", "cancelled"] as const)("releases a %s run", (status) => {
-    expect(shouldReleaseBranchWorkflow(status)).toBe(true);
+    expect(shouldReleaseWorkflow(status)).toBe(true);
   });
 
   it.each(["pending", "running", "completed"] as const)("preserves a %s run", (status) => {
-    expect(shouldReleaseBranchWorkflow(status)).toBe(false);
+    expect(shouldReleaseWorkflow(status)).toBe(false);
   });
 });
 

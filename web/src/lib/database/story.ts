@@ -6,6 +6,8 @@ import { parseDatabaseRow, parseDatabaseRows, throwIfDatabaseError } from "@/lib
 import { dreamStorySchema, type DreamStory, type StoryScene } from "@/lib/domain/story";
 import { jobStatusSchema } from "@/lib/database/schemas";
 
+const IMAGE_URL_TTL_SECONDS = 3_600;
+
 const dreamRowSchema = z.object({
   id: z.uuid(), status: z.string(), title: z.string().nullable(), summary: z.string().nullable(),
   mood: z.array(z.string()), failed_stage: z.string().nullable(), error_code: z.string().nullable(),
@@ -87,7 +89,7 @@ async function attachVersionImage(
 }
 
 async function signImage(client: SupabaseClient<Database>, path: string): Promise<string> {
-  const result = await client.storage.from("dream-images").createSignedUrl(path, 600);
+  const result = await client.storage.from("dream-images").createSignedUrl(path, IMAGE_URL_TTL_SECONDS);
   throwIfDatabaseError(result.error);
   return z.url().parse(result.data?.signedUrl);
 }

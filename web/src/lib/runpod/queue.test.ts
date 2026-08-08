@@ -21,6 +21,14 @@ describe("Runpod queue client", () => {
     await expect(getQueueStatus("endpoint", "job-1", "secret", fetcher)).rejects.toThrow();
   });
 
+  it.each(["status", "cancel"])("rejects a mismatched job ID from %s", async (operation) => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ id: "job-2", status: "COMPLETED" }));
+    const request = operation === "status"
+      ? getQueueStatus("endpoint", "job-1", "secret", fetcher)
+      : cancelQueueJob("endpoint", "job-1", "secret", fetcher);
+    await expect(request).rejects.toThrow("different job ID");
+  });
+
   it("cancels a specific queued job", async () => {
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({ id: "job-1", status: "CANCELLED" }));
     await expect(cancelQueueJob("endpoint", "job-1", "secret", fetcher)).resolves.toMatchObject({

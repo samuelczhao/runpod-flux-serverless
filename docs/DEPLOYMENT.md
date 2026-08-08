@@ -35,7 +35,7 @@ inputs, or logs. The Hugging Face token belongs only in Runpod's Model configura
 | GPU pool | H100 80 GB variants | same | Fits unquantized BF16 model |
 | GPUs per worker | 1 | 1 | Pipeline is single-GPU |
 | Active workers | 0 | 1 | Cost control; remove demo cold start |
-| Max workers | 1 | 1 | Hard cost and concurrency bound |
+| Max workers | 1 | 1 | Concurrency ceiling; not a cumulative spend limit |
 | Idle timeout | 300 seconds | 300 seconds | Avoid reloads during evaluation |
 | Execution timeout | 600 seconds | 600 seconds | Bound runaway jobs |
 | FlashBoot | enabled | enabled | Faster worker revival |
@@ -76,7 +76,7 @@ merges to its configured `main` branch. After CI passes and code is merged:
 3. Confirm the deployed image tag resolves to the intended commit.
 4. Run the smoke and acceptance tests before considering the release healthy.
 
-For the DreamTrace merge, Runpod produced image tag `8bfc51952`, matching the first nine
+For the initial DreamTrace merge, Runpod produced image tag `8bfc51952`, matching the first nine
 characters of merge commit `8bfc519529016e9b4dd95231c2eee274b828f012`. Record this
 mapping rather than assuming a webhook or release updated the endpoint.
 

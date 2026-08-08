@@ -16,23 +16,25 @@
 
 1. **Outcome — 30 seconds.** Open a finished dream. Explain: “I started with the required
    FLUX endpoint, then built a private visual dream journal around Runpod.”
-2. **User flow — 75 seconds.** Enter a short dream, start generation, and switch to an
+2. **Required endpoint — 75 seconds.** Show `handler.py`, one-time model load, bounded
+   contract, cached gated weights, the root Dockerfile, and the completed GitHub build.
+3. **Direct endpoint result — 45 seconds.** Show the red-panda request, Runpod job, and
+   generated 1024×1024 image before introducing the product extension.
+4. **User flow — 60 seconds.** Enter a short dream, start generation, and switch to an
    already-completed story while the live job runs.
-3. **Coherence — 45 seconds.** Show the three scenes and point out the shared palette,
+5. **Coherence — 45 seconds.** Show the three scenes and point out the shared palette,
    character, object, and setting carried from the anchor through Kontext.
-4. **Interactive edit — 45 seconds.** Show the red-fox branch comparison and select the
+6. **Interactive edit — 45 seconds.** Show the red-fox branch comparison and select the
    preferred scene without regenerating the other two.
-5. **Memory over time — 30 seconds.** Open the constellation and show recurring motifs
+7. **Memory over time — 30 seconds.** Open the constellation and show recurring motifs
    connecting two dreams.
-6. **Architecture — 60 seconds.** Use the README diagram: browser, durable workflow,
+8. **Architecture — 60 seconds.** Use the README diagram: browser, durable workflow,
    Supabase, Qwen planner, custom FLUX anchor, Kontext continuity/edit.
-7. **Required endpoint — 60 seconds.** Show `handler.py`, one-time model load, bounded
-   contract, cached gated weights, GitHub build, and the direct red-panda output.
-8. **Reliability — 60 seconds.** Explain persisted endpoint/request identity, workflow
-   claims, ambiguous-submission recovery, cancellation, RLS, and scale-to-zero.
-9. **Evidence — 30 seconds.** Show typecheck, 127 web tests, 53 worker tests, production
+9. **Reliability — 45 seconds.** Explain persisted endpoint/request identity, workflow
+   recovery, ambiguous-submission handling, cancellation, RLS, and the API rate limit.
+10. **Evidence — 30 seconds.** Show typecheck, web tests, 53 worker tests, production
    build, schema lint, live database recovery, and measured Runpod jobs.
-10. **Return to outcome — 15 seconds.** Refresh the live dream if ready; otherwise keep
+11. **Return to outcome — 15 seconds.** Refresh the live dream if ready; otherwise keep
     the fallback story visible and show the queued/running request honestly.
 
 ## Direct endpoint fallback

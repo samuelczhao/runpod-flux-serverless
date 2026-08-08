@@ -8,7 +8,11 @@
     "node": "24.x"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@swc/core", "esbuild", "unrs-resolver"]
+    "onlyBuiltDependencies": ["@swc/core", "esbuild", "unrs-resolver"],
+    "overrides": {
+      "@workflow/core>nanoid": "5.1.16",
+      "undici": "7.29.0"
+    }
   },
   "scripts": {
     "dev": "next dev",

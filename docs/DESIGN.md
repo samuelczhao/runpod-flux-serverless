@@ -19,7 +19,7 @@ how the endpoint participates in a coherent application.
 
 Tradeoff: the application has more infrastructure than the minimum submission. The
 worker remains runnable and documented on its own, and each added provider boundary has
-strict validation, persisted identity, and a scale-to-zero cost cap.
+strict validation, persisted identity, and an explicit one-worker concurrency ceiling.
 
 ### Durable paid-work accounting
 
@@ -27,6 +27,11 @@ The application claims a generation operation in Postgres before calling Runpod.
 claim records the exact endpoint, model, stable request hash, and operation key. The
 external job ID is recorded before polling, and database functions enforce legal state
 transitions and idempotent completion.
+
+Text capture also carries a browser-stable operation UUID. The database atomically
+returns the same dream for a replay, so a lost HTTP response cannot allocate a second
+story. Durable workflow claims keep provisional tokens separate from recorded run IDs;
+missing, failed, and cancelled runs can be reclaimed without disturbing a live run.
 
 Tradeoff: an uncertain submission or cancellation cannot be automatically retried. It
 is surfaced for reconciliation because duplicate GPU work is more expensive and less

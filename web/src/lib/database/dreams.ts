@@ -5,7 +5,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { parseDatabaseRow, parseDatabaseRows, throwIfDatabaseError } from "@/lib/database/errors";
 import { processingDreamSchema, type ProcessingDream } from "@/lib/database/schemas";
 
-const workflowClaimSchema = z.object({ workflow_id: z.string(), claimed: z.boolean() }).strict();
 const optionalWorkflowClaimSchema = z.object({
   workflow_id: z.string().nullable(), claimed: z.boolean(),
 }).strict();
@@ -16,7 +15,7 @@ const ACTIVE_STATES: readonly DreamStatus[] = [
 ];
 
 export interface WorkflowClaim {
-  readonly workflowId: string;
+  readonly workflowId: string | null;
   readonly claimed: boolean;
 }
 
@@ -78,7 +77,7 @@ export async function claimDreamWorkflow(
     p_dream_id: dreamId, p_user_id: userId, p_claim_token: token,
   });
   throwIfDatabaseError(result.error);
-  const rows = parseDatabaseRows(workflowClaimSchema, result.data);
+  const rows = parseDatabaseRows(optionalWorkflowClaimSchema, result.data);
   return rows[0] ? { workflowId: rows[0].workflow_id, claimed: rows[0].claimed } : null;
 }
 
@@ -92,7 +91,7 @@ export async function claimAudioPlanWorkflow(
     p_dream_id: dreamId, p_user_id: userId, p_transcript: transcript, p_claim_token: token,
   });
   throwIfDatabaseError(result.error);
-  const rows = parseDatabaseRows(workflowClaimSchema, result.data);
+  const rows = parseDatabaseRows(optionalWorkflowClaimSchema, result.data);
   return rows[0] ? { workflowId: rows[0].workflow_id, claimed: rows[0].claimed } : null;
 }
 
@@ -117,6 +116,18 @@ export async function prepareAudioDream(
 ): Promise<string> {
   const result = await createSupabaseAdminClient().rpc("prepare_audio_dream", {
     p_user_id: userId, p_operation_key: operationId, p_mime_type: mimeType,
+  });
+  throwIfDatabaseError(result.error);
+  return z.uuid().parse(result.data);
+}
+
+export async function prepareTextDream(
+  userId: string,
+  operationId: string,
+  transcript: string,
+): Promise<string> {
+  const result = await createSupabaseAdminClient().rpc("prepare_text_dream", {
+    p_user_id: userId, p_operation_key: operationId, p_transcript: transcript,
   });
   throwIfDatabaseError(result.error);
   return z.uuid().parse(result.data);
@@ -190,9 +201,13 @@ export async function recordDreamWorkflow(dreamId: string, token: string, runId:
   throwIfDatabaseError(result.error);
 }
 
-export async function releaseDreamWorkflow(dreamId: string, token: string): Promise<void> {
-  const result = await createSupabaseAdminClient().rpc("release_dream_workflow_claim", {
-    p_dream_id: dreamId, p_claim_token: token,
+export async function releaseDreamWorkflowExecution(
+  dreamId: string,
+  token: string,
+  runId: string,
+): Promise<void> {
+  const result = await createSupabaseAdminClient().rpc("release_dream_workflow_execution", {
+    p_dream_id: dreamId, p_claim_token: token, p_run_id: runId,
   });
   throwIfDatabaseError(result.error);
 }

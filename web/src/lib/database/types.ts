@@ -19,6 +19,7 @@ type DreamRow = {
   audio_size_bytes: number | null;
   audio_uploaded_at: string | null;
   audio_operation_key: string | null;
+  text_operation_key: string | null;
   audio_upload_expires_at: string | null;
   audio_cleanup_run_id: string | null;
   audio_cleanup_claim_token: string | null;
@@ -27,6 +28,8 @@ type DreamRow = {
   summary: string | null;
   visual_bible: string | null;
   workflow_run_id: string | null;
+  workflow_claim_token: string | null;
+  workflow_claimed_at: string | null;
   failed_stage: string | null;
   error_code: string | null;
   retain_audio: boolean;
@@ -155,12 +158,15 @@ export type Database = {
       }>;
       claim_dream_workflow: {
         Args: { p_dream_id: string; p_user_id: string; p_claim_token: string };
-        Returns: { workflow_id: string; claimed: boolean }[];
+        Returns: { workflow_id: string | null; claimed: boolean }[];
       };
       record_dream_workflow: VoidFunction<{
         p_dream_id: string; p_claim_token: string; p_run_id: string;
       }>;
       release_dream_workflow_claim: VoidFunction<{ p_dream_id: string; p_claim_token: string }>;
+      release_dream_workflow_execution: VoidFunction<{
+        p_dream_id: string; p_claim_token: string; p_run_id: string;
+      }>;
       complete_audio_upload: VoidFunction<{
         p_dream_id: string;
         p_user_id: string;
@@ -176,12 +182,16 @@ export type Database = {
       }>;
       claim_audio_plan_workflow: {
         Args: { p_dream_id: string; p_user_id: string; p_transcript: string; p_claim_token: string };
-        Returns: { workflow_id: string; claimed: boolean }[];
+        Returns: { workflow_id: string | null; claimed: boolean }[];
       };
       mark_audio_deleted: VoidFunction<{ p_dream_id: string; p_storage_path: string }>;
       prepare_audio_deletion: { Args: { p_dream_id: string }; Returns: string | null };
       prepare_audio_dream: {
         Args: { p_user_id: string; p_operation_key: string; p_mime_type: string };
+        Returns: string;
+      };
+      prepare_text_dream: {
+        Args: { p_user_id: string; p_operation_key: string; p_transcript: string };
         Returns: string;
       };
       claim_audio_cleanup_workflow: {

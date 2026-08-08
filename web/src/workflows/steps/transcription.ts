@@ -1,3 +1,4 @@
+import { FatalError } from "workflow";
 import { getRunpodEnv } from "@/lib/config/env";
 import { getProcessingDream } from "@/lib/database/dreams";
 import { hashJson } from "@/lib/database/hash";
@@ -36,6 +37,7 @@ export async function inspectTranscriptionStep(jobId: string): Promise<Transcrip
   "use step";
   const job = await getGenerationJob(jobId);
   if (job.status === "COMPLETED") return "completed";
+  if (isTerminalFailure(job.status)) return "failed";
   const status = await fetchTranscriptionStatus(job);
   if (status.status === "COMPLETED") return "completed";
   if (status.status === "IN_QUEUE") return "pending";
@@ -47,7 +49,9 @@ export async function inspectTranscriptionStep(jobId: string): Promise<Transcrip
 export async function persistTranscriptionStep(jobId: string): Promise<void> {
   "use step";
   const job = await getGenerationJob(jobId);
-  if (job.status !== "COMPLETED") await completeFromProvider(job);
+  if (job.status === "COMPLETED") return;
+  if (isTerminalFailure(job.status)) throw new FatalError("Transcription job is terminal");
+  await completeFromProvider(job);
 }
 
 async function claimTranscriptionJob(
@@ -99,8 +103,22 @@ async function fetchTranscriptionStatus(
 async function completeFromProvider(job: Awaited<ReturnType<typeof getGenerationJob>>): Promise<void> {
   const status = await fetchTranscriptionStatus(job);
   if (status.status !== "COMPLETED") throw new Error("Provider transcription is not complete");
-  const output = normalizeWhisperOutput(status.output);
+  const output = await parseTranscriptionOutput(job, status);
   await completeTranscriptionJob(job.id, output.transcript, queueMetrics(status));
+}
+
+async function parseTranscriptionOutput(
+  job: Awaited<ReturnType<typeof getGenerationJob>>,
+  status: QueueStatus,
+): Promise<ReturnType<typeof normalizeWhisperOutput>> {
+  try {
+    return normalizeWhisperOutput(status.output);
+  } catch {
+    await transitionGenerationJob(job.id, job.status, "FAILED", {
+      ...queueMetrics(status), p_error_code: "INVALID_PROVIDER_OUTPUT",
+    });
+    throw new FatalError("Provider returned an invalid transcription");
+  }
 }
 
 async function recordTranscriptionRunning(
@@ -133,4 +151,8 @@ function requireWhisperEndpoint(): string {
   const endpointId = getRunpodEnv().whisperEndpointId;
   if (!endpointId) throw new Error("Runpod Whisper endpoint is not configured");
   return endpointId;
+}
+
+function isTerminalFailure(status: Awaited<ReturnType<typeof getGenerationJob>>["status"]): boolean {
+  return status !== "QUEUED" && status !== "RUNNING" && status !== "COMPLETED";
 }

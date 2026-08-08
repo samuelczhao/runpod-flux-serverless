@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from "react";
 import Link from "next/link";
-import { dreamStorySchema, shouldPollDream, type DreamStory } from "@/lib/domain/story";
+import {
+  dreamStorySchema,
+  preserveStoryImageUrls,
+  shouldPollDream,
+  type DreamStory,
+} from "@/lib/domain/story";
 import { isRetryableHttpStatus } from "@/lib/domain/polling";
 import { SceneCard } from "@/app/dream/[dreamId]/SceneCard";
 
@@ -16,13 +21,17 @@ const STORY_POLL_INTERVAL_MS = 3_000;
 
 export function DreamExperience({ dreamId }: { readonly dreamId: string }): ReactElement {
   const { story, error, refresh } = useDreamStory(dreamId);
-  if (error) return <StateMessage title="The trace went quiet" copy={error} />;
+  if (error && (!story || !error.retrying)) {
+    return <StateMessage title="The trace went quiet" copy={error.message} />;
+  }
   if (!story) return <StateMessage title="Opening the dream" copy="Restoring your private journal…" />;
-  if (story.status === "FAILED") return <FailureState story={story} />;
-  if (story.awaitingTranscriptReview) return <TranscriptReview story={story} />;
-  return story.status === "READY"
-    ? <StoryView onStoryChanged={refresh} story={story} />
-    : <ProcessingView story={story} />;
+  const content = story.status === "FAILED" ? <FailureState story={story} />
+    : story.awaitingTranscriptReview ? <TranscriptReview story={story} />
+      : story.status === "READY" ? <StoryView onStoryChanged={refresh} story={story} />
+        : <ProcessingView story={story} />;
+  return <><p aria-live="polite" className="sr-only">{stageLabel(story.status)}</p>
+    {error ? <p className="poll-warning" role="status">Connection interrupted. Retrying…</p> : null}
+    {content}</>;
 }
 
 function TranscriptReview({ story }: { readonly story: DreamStory }) {
@@ -100,10 +109,10 @@ function StateMessage({ title, copy }: { readonly title: string; readonly copy: 
 }
 
 function useDreamStory(dreamId: string): {
-  story: DreamStory | null; error: string | null; refresh: () => void;
+  story: DreamStory | null; error: StoryLoadError | null; refresh: () => void;
 } {
   const [story, setStory] = useState<DreamStory | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<StoryLoadError | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const requestRefresh = useCallback(() => setRefreshKey((value) => value + 1), []);
   useEffect(() => {
@@ -114,12 +123,13 @@ function useDreamStory(dreamId: string): {
       try {
         const next = await fetchDream(dreamId);
         if (!active) return;
-        setStory(next); setError(null);
+        setStory((current) => preserveStoryImageUrls(current, next)); setError(null);
         if (shouldPollDream(next)) schedule();
       } catch (cause: unknown) {
         if (!active) return;
-        setError("The private story could not be loaded.");
-        if (shouldRetryStoryError(cause)) schedule();
+        const retrying = shouldRetryStoryError(cause);
+        setError({ message: "The private story could not be loaded.", retrying });
+        if (retrying) schedule();
       }
     };
     void poll();
@@ -150,6 +160,11 @@ class DreamRequestError extends Error {
 }
 
 class DreamPayloadError extends Error {}
+
+interface StoryLoadError {
+  readonly message: string;
+  readonly retrying: boolean;
+}
 
 async function confirmTranscript(
   event: FormEvent<HTMLFormElement>,

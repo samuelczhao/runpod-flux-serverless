@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { shouldPollDream, type DreamStory, type StoryVersion } from "@/lib/domain/story";
+import {
+  preserveStoryImageUrls,
+  shouldPollDream,
+  type DreamStory,
+  type StoryVersion,
+} from "@/lib/domain/story";
 
 const ID = "5deefbe0-2003-4af4-b75e-0bd9c22bed60";
 
@@ -39,5 +44,12 @@ describe("dream story polling", () => {
 
   it("stops a READY dream without a branch", () => {
     expect(shouldPollDream(story("READY"))).toBe(false);
+  });
+
+  it("preserves a signed URL while a version identity is unchanged", () => {
+    const current = story("READY", [{ ...version("COMPLETED"), imageUrl: "https://old.example/a.png" }]);
+    const next = story("READY", [{ ...version("COMPLETED"), imageUrl: "https://new.example/a.png" }]);
+    expect(preserveStoryImageUrls(current, next).scenes[0]?.versions[0]?.imageUrl)
+      .toBe("https://old.example/a.png");
   });
 });
