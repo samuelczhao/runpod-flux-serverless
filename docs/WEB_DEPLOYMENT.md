@@ -4,6 +4,8 @@ The Runpod endpoints and Supabase project are independent of the web host. Verce
 the Next.js application and its durable workflow functions; Supabase owns authentication,
 private data, and storage; Runpod performs GPU inference.
 
+Current public domain: [dreamtrace.vercel.app](https://dreamtrace.vercel.app)
+
 ## Project configuration
 
 The Vercel project is `dreamtrace`. For a fresh setup, create it once with:
@@ -93,7 +95,9 @@ anonymous-session checks.
 10. Confirm `/api/internal/audio-cleanup` appears under Vercel Cron Jobs. Trigger one
    authenticated manual run from Vercel and capture its response or log separately from
    the first scheduled invocation. Vercel does not retry a failed cron invocation.
-11. Confirm Runpod returns to zero workers after the configured idle window.
+11. For the presentation window, confirm one active worker on the owned planner, FLUX,
+    and Whisper endpoints. After the interview, set their minimums back to zero if warm
+    demo latency is no longer required.
 
 If Git is connected later, use a fully isolated Preview for staged acceptance before
 merging; merging `main` then publishes Production automatically and replaces steps 2–6.
@@ -137,3 +141,5 @@ is failed and released for deletion so a lost transcription cannot retain audio 
 
 Do not capture API keys, signed image URLs, anonymous user IDs, or worker environment
 objects in screenshots or logs.
+
+The latest acceptance record is maintained in [EVIDENCE.md](EVIDENCE.md).

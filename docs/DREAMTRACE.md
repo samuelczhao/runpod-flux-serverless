@@ -74,14 +74,12 @@ configuration, not the web application.
 
 ## Planner endpoint settings
 
-The Qwen planner scales from zero and remains capped at one worker. Its submission idle
-timeout is five seconds for cost control; temporarily raise it to 600 seconds and
-prewarm the endpoint for the live presentation. The allowed GPU pool prioritizes CUDA
-13-capable Blackwell cards with compatible Ada and Ampere fallbacks. CUDA 13.0 remains
-required because the pinned vLLM worker image declares CUDA 13.0.2 and a CUDA 13
-minimum. This broadens capacity as far as the image allows while preserving the
-one-worker cost ceiling; the larger fallback cards trade a higher per-second rate for
-availability.
+The Qwen planner remains capped at one worker. During the interview window it keeps one
+active worker with a 300-second idle timeout and prioritizes the 16 GB RTX A4000 tier.
+Qwen3-4B-AWQ fits comfortably there, and the abundant right-sized tier avoided measured
+4090 host throttling. The custom FLUX and Whisper endpoints also keep one active worker
+for presentation reliability. Return all three minimums to zero after the interview if
+scale-to-zero behavior is preferred.
 
 ## Local run
 
@@ -144,6 +142,21 @@ DREAMTRACE_DEMO_SEED=1 DREAMTRACE_BASE_URL=http://localhost:3000 \
 Use this only when the endpoint budget and intended Supabase project have been checked.
 Ordinary unit, build, and database-recovery tests do not call a GPU.
 
+## Paid voice acceptance
+
+The opt-in voice client exercises signed upload, upload-completion replay, Runpod Whisper,
+transcript review, transcript-confirmation replay, and the full three-image workflow. The
+audio file may be OGG, MP4, or WebM and must be at most 10 MB.
+
+```bash
+DREAMTRACE_VOICE_SMOKE=1 DREAMTRACE_BASE_URL=https://dreamtrace.vercel.app \
+  DREAMTRACE_AUDIO_PATH=/absolute/path/to/dream.ogg DREAMTRACE_AUDIO_MIME=audio/ogg \
+  pnpm --dir web demo:voice
+```
+
+The successful journal remains under the smoke client's anonymous session, and source
+audio remains private until its durable cleanup deadline.
+
 ## Live evidence
 
 The hardened end-to-end path has produced:
@@ -151,21 +164,20 @@ The hardened end-to-end path has produced:
 - two three-scene dreams sharing a silver train, brass key, red fox, and moonlit lake;
 - a completed scene-two branch that makes the fox visually unmistakable;
 - successful branch selection and preserved private PNGs;
-- warm planner execution in seconds after the initial model cold start;
+- a 54-word Runpod Whisper transcript followed by a complete three-scene voice story;
+- accepted upload and transcript replays without duplicate workflows;
+- warm planner execution in 1.8 seconds after the initial model cold start;
 - provider-reported Kontext cost where available.
 
-A later post-idle planner check remained in worker initialization beyond ten minutes
-and was explicitly cancelled before inference. Treat this as measured cold-start
-capacity evidence, not a completed model validation; the mood-quality guard added
-afterward is covered by local contract tests and the database constraint.
+A post-idle planner job remained queued while a 4090 worker was throttled and reached the
+local cancellation deadline. Prioritizing an active A4000 worker removed that capacity
+bottleneck; the subsequent text and voice workflows completed without queue buildup.
 
 Exact job IDs and measured timings belong in redacted presentation evidence, not source
 code, because endpoint history and anonymous journal IDs are operational data.
 
 ## Web deployment
 
-The Runpod endpoints and Supabase schema are live. The Next.js app is production-build
-clean locally. Follow [WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md) for the Vercel root,
-environment boundaries, release sequence, acceptance test, and rollback procedure. A
-public URL should only be added to the README after a fresh browser-to-GPU acceptance
-test succeeds.
+The Runpod endpoints, Supabase schema, durable workflows, and public Vercel application
+are live. Follow [WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md) for the environment boundaries,
+release sequence, acceptance test, and rollback procedure.

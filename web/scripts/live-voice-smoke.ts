@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { isAbsolute, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -35,7 +36,7 @@ type VoiceStory = z.infer<typeof storySchema>;
 
 async function main(): Promise<void> {
   const env = envSchema.parse(process.env);
-  const audio = await readAudio(env.DREAMTRACE_AUDIO_PATH);
+  const audio = await readAudio(resolveAudioPath(env.DREAMTRACE_AUDIO_PATH));
   const context = await createLiveContext({
     baseUrl: env.DREAMTRACE_BASE_URL,
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
@@ -57,6 +58,11 @@ async function readAudio(path: string): Promise<Buffer> {
     throw new Error("Audio fixture must be between 1 byte and 10 MB");
   }
   return audio;
+}
+
+function resolveAudioPath(path: string): string {
+  if (isAbsolute(path)) return path;
+  return resolve(process.env.INIT_CWD ?? process.cwd(), path);
 }
 
 async function prepareUpload(context: LiveAppContext, mimeType: VoiceEnv["DREAMTRACE_AUDIO_MIME"]) {
