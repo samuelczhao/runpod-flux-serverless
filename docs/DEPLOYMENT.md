@@ -66,12 +66,19 @@ though the weight bytes are provisioned separately from the container.
 
 ## Releases and rollback
 
-The first endpoint deployment builds immediately. Later commits do not automatically
-replace workers. After CI passes and code is merged:
+The first endpoint deployment builds immediately. Runpod's public guide describes a
+GitHub Release as the update trigger, but this imported endpoint has also rebuilt on
+merges to its configured `main` branch. After CI passes and code is merged:
 
-1. Create a GitHub Release from the desired `main` commit.
-2. Monitor the new build in Runpod's **Builds** tab.
-3. Run the smoke and acceptance tests before considering the release healthy.
+1. Monitor the Runpod **Builds** tab for a build of the merged `main` commit.
+2. If no build appears, create a GitHub Release from that commit as documented by
+   Runpod.
+3. Confirm the deployed image tag resolves to the intended commit.
+4. Run the smoke and acceptance tests before considering the release healthy.
+
+For the DreamTrace merge, Runpod produced image tag `8bfc51952`, matching the first nine
+characters of merge commit `8bfc519529016e9b4dd95231c2eee274b828f012`. Record this
+mapping rather than assuming a webhook or release updated the endpoint.
 
 To roll back, select a previously completed build in the endpoint's **Builds** tab and
 choose **Rollback**. Runpod switches to that stored image without rebuilding it.

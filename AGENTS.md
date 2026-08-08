@@ -31,3 +31,6 @@
 - Planner cold starts can exceed the ten-minute client poll window even with FlashBoot.
   Prewarm before a live demo, keep one-worker cost bounds, and never retry while an
   existing worker is still initializing.
+- Runpod endpoint responses can embed worker environment secrets when
+  `includeWorkers=true`. Project only an explicit safe-field allowlist with `jq`; never
+  print the complete worker object or its `env` field.
