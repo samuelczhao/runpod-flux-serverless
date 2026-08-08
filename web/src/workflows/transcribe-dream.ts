@@ -1,4 +1,4 @@
-import { sleep } from "workflow";
+import { getWorkflowMetadata, sleep } from "workflow";
 import {
   inspectTranscriptionStep,
   persistTranscriptionStep,
@@ -7,11 +7,23 @@ import {
 import { failDreamStep } from "@/workflows/steps/finalize";
 import { cancelGenerationJobStep } from "@/workflows/steps/cancel";
 import { PROVIDER_POLL_ATTEMPTS, providerPollDelay } from "@/workflows/polling";
+import {
+  recordDreamWorkflowStep,
+  releaseDreamWorkflowExecutionStep,
+} from "@/workflows/steps/dream-workflow";
 
 export async function transcribeDreamWorkflow(
   dreamId: string,
+  claimToken: string,
 ): Promise<{ dreamId: string; status: "PLANNING" }> {
   "use workflow";
+  const runId = getWorkflowMetadata().workflowRunId;
+  try {
+    await recordDreamWorkflowStep(dreamId, claimToken, runId);
+  } catch (error: unknown) {
+    await releaseDreamWorkflowExecutionStep(dreamId, claimToken, runId);
+    throw error;
+  }
   try {
     const jobId = await submitTranscriptionStep(dreamId);
     await waitForTranscription(jobId);
@@ -19,6 +31,7 @@ export async function transcribeDreamWorkflow(
     return { dreamId, status: "PLANNING" };
   } catch (error: unknown) {
     await failDreamStep(dreamId, "transcription");
+    await releaseDreamWorkflowExecutionStep(dreamId, claimToken, runId);
     throw error;
   }
 }

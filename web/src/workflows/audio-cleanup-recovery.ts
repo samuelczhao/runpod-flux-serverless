@@ -1,4 +1,4 @@
-import type { ExistingRunState } from "@/workflows/branch-recovery";
+import type { ExistingRunState } from "@/workflows/run-recovery";
 
 export function shouldReleaseAudioCleanup(state: ExistingRunState): boolean {
   return state === "missing" || state === "completed"

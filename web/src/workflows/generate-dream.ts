@@ -1,24 +1,55 @@
-import { sleep } from "workflow";
+import { getWorkflowMetadata, sleep } from "workflow";
 import { failDreamStep, finalizeDreamStep } from "@/workflows/steps/finalize";
 import { submitAnchorStep, submitSceneStep } from "@/workflows/steps/images";
 import { inspectPlanStep, persistPlanStep, submitPlanStep } from "@/workflows/steps/planning";
 import { inspectImageJobStep, persistImageStep } from "@/workflows/steps/status";
 import { cancelGenerationJobStep } from "@/workflows/steps/cancel";
 import { PROVIDER_POLL_ATTEMPTS, providerPollDelay } from "@/workflows/polling";
+import {
+  getDreamWorkflowStatusStep,
+  recordDreamWorkflowStep,
+  releaseDreamWorkflowExecutionStep,
+} from "@/workflows/steps/dream-workflow";
 
-export async function generateDreamWorkflow(dreamId: string): Promise<{ dreamId: string; status: "READY" }> {
+export async function generateDreamWorkflow(
+  dreamId: string,
+  claimToken: string,
+): Promise<{ dreamId: string; status: "READY" }> {
   "use workflow";
+  const runId = getWorkflowMetadata().workflowRunId;
   try {
-    await generatePlan(dreamId);
-    await generateAnchor(dreamId);
-    await generateScene(dreamId, 2);
-    await generateScene(dreamId, 3);
-    await finalizeDreamStep(dreamId);
+    await recordDreamWorkflowStep(dreamId, claimToken, runId);
+  } catch (error: unknown) {
+    await releaseDreamWorkflowExecutionStep(dreamId, claimToken, runId);
+    throw error;
+  }
+  try {
+    await resumeDreamGeneration(dreamId);
     return { dreamId, status: "READY" };
   } catch (error: unknown) {
     await failDreamStep(dreamId, "generation");
+    await releaseDreamWorkflowExecutionStep(dreamId, claimToken, runId);
     throw error;
   }
+}
+
+async function resumeDreamGeneration(dreamId: string): Promise<void> {
+  let status = await getDreamWorkflowStatusStep(dreamId);
+  if (status === "PLANNING") {
+    await generatePlan(dreamId);
+    status = "GENERATING_ANCHOR";
+  }
+  if (status === "GENERATING_ANCHOR") {
+    await generateAnchor(dreamId);
+    status = "GENERATING_SCENES";
+  }
+  if (status === "GENERATING_SCENES") {
+    await generateScene(dreamId, 2);
+    await generateScene(dreamId, 3);
+    await finalizeDreamStep(dreamId);
+    return;
+  }
+  if (status !== "READY") throw new Error(`Dream cannot resume from ${status}`);
 }
 
 async function generatePlan(dreamId: string): Promise<void> {

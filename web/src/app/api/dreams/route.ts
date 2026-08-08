@@ -1,20 +1,19 @@
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { throwIfDatabaseError } from "@/lib/database/errors";
-import { uuidSchema } from "@/lib/database/schemas";
+import { prepareTextDream } from "@/lib/database/dreams";
 import { DreamAccessError, startDreamGeneration } from "@/workflows/start";
 
 const createDreamSchema = z.object({
+  operationId: z.uuid(),
   transcript: z.string().trim().min(10).max(12_000),
 }).strict();
-const insertedDreamSchema = z.object({ id: uuidSchema }).strict();
 
 export async function POST(request: Request): Promise<Response> {
   try {
     const input = createDreamSchema.parse(await request.json() as unknown);
     const client = await createSupabaseServerClient();
     const user = await requireUser(client);
-    const dreamId = await insertDream(client, user.id, input.transcript);
+    const dreamId = await prepareTextDream(user.id, input.operationId, input.transcript);
     const run = await startDreamGeneration(dreamId, user.id);
     return Response.json({ dreamId, runId: run.runId }, { status: 202 });
   } catch (error: unknown) {
@@ -26,18 +25,6 @@ async function requireUser(client: Awaited<ReturnType<typeof createSupabaseServe
   const result = await client.auth.getUser();
   if (result.error || !result.data.user) throw new AuthenticationError();
   return result.data.user;
-}
-
-async function insertDream(
-  client: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-  transcript: string,
-): Promise<string> {
-  const result = await client.from("dreams").insert({
-    user_id: userId, input_mode: "text", transcript,
-  }).select("id").single();
-  throwIfDatabaseError(result.error);
-  return insertedDreamSchema.parse(result.data).id;
 }
 
 function createErrorResponse(error: unknown): Response {
