@@ -8,9 +8,11 @@ import { uuidSchema } from "@/lib/database/schemas";
 const IMAGE_BUCKET = "dream-images";
 const AUDIO_BUCKET = "dream-audio";
 const MAX_IMAGE_BYTES = 10_000_000;
+const MAX_PROVIDER_REDIRECTS = 3;
 const SIGNED_URL_SECONDS = 600;
 const AUDIO_SIGNED_URL_SECONDS = 3_600;
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+const PROVIDER_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const uploadSchema = z.object({ path: z.string().min(1) }).passthrough();
 const signedUrlSchema = z.object({ signedUrl: z.url() }).passthrough();
 const signedUploadSchema = z.object({ path: z.string().min(1), token: z.string().min(1) }).passthrough();
@@ -102,12 +104,27 @@ export async function createDreamImageUrl(path: string): Promise<string> {
 }
 
 export async function downloadProviderPng(url: string, fetcher: FetchLike = fetch): Promise<Buffer> {
-  const response = await fetcher(requireHttps(url));
+  const response = await fetchProviderArtifact(url, fetcher);
   if (!response.ok) throw downloadError(response.status);
   rejectOversizedHeader(response.headers.get("content-length"));
   const bytes = await readBoundedBody(response);
   validatePng(bytes);
   return bytes;
+}
+
+async function fetchProviderArtifact(url: string, fetcher: FetchLike): Promise<Response> {
+  let current = requireProviderArtifactUrl(url);
+  for (let redirect = 0; redirect <= MAX_PROVIDER_REDIRECTS; redirect += 1) {
+    const response = await fetcher(current, { redirect: "manual" });
+    if (!PROVIDER_REDIRECT_STATUSES.has(response.status)) return response;
+    const location = response.headers.get("location");
+    if (!location) throw new ProviderArtifactError("Provider image redirect has no destination");
+    if (redirect === MAX_PROVIDER_REDIRECTS) {
+      throw new ProviderArtifactError("Provider image exceeded the redirect limit");
+    }
+    current = requireProviderArtifactUrl(new URL(location, current).toString());
+  }
+  throw new ProviderArtifactError("Provider image redirect failed");
 }
 
 function downloadError(status: number): Error {
@@ -142,9 +159,18 @@ function audioPath(userId: string, dreamId: string, mimeType: DreamAudioMimeType
   return `${uuidSchema.parse(userId)}/${uuidSchema.parse(dreamId)}/source.${extension}`;
 }
 
-function requireHttps(value: string): string {
-  const url = new URL(value);
-  if (url.protocol !== "https:") throw new Error("Provider image URL must use HTTPS");
+function requireProviderArtifactUrl(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new ProviderArtifactError("Provider image URL is invalid");
+  }
+  const host = url.hostname.toLowerCase();
+  const allowed = host === "image.runpod.ai" || host.endsWith(".cloudfront.net");
+  if (url.protocol !== "https:" || url.username || url.password || url.port || !allowed) {
+    throw new ProviderArtifactError("Provider image URL is not an approved artifact host");
+  }
   return url.toString();
 }
 
