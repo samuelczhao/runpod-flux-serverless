@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, DM_Sans } from "next/font/google";
+import { Newsreader, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 
-const display = Cormorant_Garamond({ subsets: ["latin"], variable: "--font-display" });
-const body = DM_Sans({ subsets: ["latin"], variable: "--font-body" });
+const display = Newsreader({ subsets: ["latin"], variable: "--font-display" });
+const body = Source_Sans_3({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {
-  title: "DreamTrace — Re-enter what you dreamed",
-  description: "A private, visual dream journal powered by Runpod.",
+  title: "DreamTrace — A visual dream journal",
+  description: "Speak or write a dream and keep it as a private visual story.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -11,11 +11,12 @@ export const metadata: Metadata = {
 export default function CapturePage(): ReactElement {
   return (
     <main className="shell inner-page">
-      <header className="inner-nav"><Link className="brand" href="/">DreamTrace</Link><span>Voice or text</span></header>
+      <header className="inner-nav"><Link className="brand" href="/">DreamTrace</Link><Link href="/journal">Open journal</Link></header>
       <section className="capture-intro">
-        <p className="eyebrow">Begin a trace</p>
-        <h1>Tell it before<br />it disappears.</h1>
-        <p>Speak or write fragments, feelings, and impossible details—DreamTrace will preserve them as three connected scenes.</p>
+        <div><p className="eyebrow">New entry</p>
+          <h1>What happened?</h1></div>
+        <div className="capture-intro-copy"><p>Speak or write everything you remember. We’ll choose one moment for each important turn in the dream.</p>
+          <p className="margin-note">Start anywhere. Fragments, feelings, and impossible details are all welcome.</p></div>
       </section>
       <CaptureClient />
     </main>

@@ -11,21 +11,24 @@ import {
 import { isRetryableHttpStatus } from "@/lib/domain/polling";
 import { SceneCard } from "@/app/dream/[dreamId]/SceneCard";
 
-const STAGES = [
-  ["PLANNING", "Finding the story"],
-  ["GENERATING_ANCHOR", "Remembering the first scene"],
-  ["GENERATING_SCENES", "Following the dream"],
-  ["READY", "Trace complete"],
-] as const;
+type ProgressStage = readonly [DreamStory["status"], string];
+
+const STORY_STAGES: readonly ProgressStage[] = [
+  ["PLANNING", "Reading your dream"],
+  ["GENERATING_ANCHOR", "Beginning the story"],
+  ["GENERATING_SCENES", "Bringing each moment to life"],
+  ["READY", "Your story is ready"],
+];
+const AUDIO_STAGE: ProgressStage = ["TRANSCRIBING", "Listening to your recording"];
 const STORY_POLL_INTERVAL_MS = 3_000;
 
 export function DreamExperience({ dreamId }: { readonly dreamId: string }): ReactElement {
   const { story, error, refresh } = useDreamStory(dreamId);
   if (error && (!story || !error.retrying)) {
-    return <StateMessage title="The trace went quiet" copy={error.message} />;
+    return <StateMessage title="The story went quiet" copy={error.message} />;
   }
-  if (!story) return <StateMessage title="Opening the dream" copy="Restoring your private journal…" />;
-  const content = story.status === "FAILED" ? <FailureState story={story} />
+  if (!story) return <StateMessage title="Opening your dream" copy="Restoring your private journal…" />;
+  const content = story.status === "FAILED" ? <FailureState />
     : story.awaitingTranscriptReview ? <TranscriptReview story={story} />
       : story.status === "READY" ? <StoryView onStoryChanged={refresh} story={story} />
         : <ProcessingView story={story} />;
@@ -45,7 +48,7 @@ function TranscriptReview({ story }: { readonly story: DreamStory }) {
     <section className="transcript-review">
       <p className="eyebrow">Transcription ready</p>
       <h1>Is this what you remember?</h1>
-      <p>Correct anything Whisper misheard. Image generation starts only after you confirm.</p>
+      <p>Correct anything we misheard. Your visual story begins after you confirm.</p>
       <TranscriptForm {...{ transcript, setTranscript, error, submitting, submit }} />
     </section>
   );
@@ -62,21 +65,23 @@ function TranscriptForm({ transcript, setTranscript, error, submitting, submit }
       value={transcript} onChange={(event) => setTranscript(event.target.value)} />
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <button className="button primary" disabled={submitting} type="submit">
-      {submitting ? "Starting the trace…" : "Confirm and create the story"}
+      {submitting ? "Starting your story…" : "Confirm and create the story"}
     </button>
   </form>;
 }
 
 function ProcessingView({ story }: { readonly story: DreamStory }) {
+  const progress = storyProgress(story);
+  const stages = story.inputMode === "audio" ? [AUDIO_STAGE, ...STORY_STAGES] : STORY_STAGES;
   return (
     <section className="processing-panel">
-      <div className="orb" aria-hidden="true" />
-      <p className="eyebrow">Dream in progress</p>
-      <h1 aria-live="polite">{stageLabel(story.status)}</h1>
-      <p>GPU workers can take a few minutes to wake up. This page will update itself.</p>
-      <ol className="stage-list">{STAGES.map(([status, label]) => (
+      <div className="processing-rule" aria-hidden="true" />
+      <p className="eyebrow">Your entry is in progress</p>
+      <h1 aria-live="polite">{progress.title}</h1>
+      <p>{progress.copy}</p>
+      <ol className="stage-list">{stages.map(([status, label]) => (
         <li aria-current={story.status === status ? "step" : undefined}
-          className={stageClass(story.status, status)} key={status}><span />{label}</li>
+          className={stageClass(story.status, status, stages)} key={status}><span />{label}</li>
       ))}</ol>
     </section>
   );
@@ -87,25 +92,27 @@ function StoryView({ story, onStoryChanged }: {
 }) {
   return (
     <section className="story-view">
-      <header className="story-header"><p className="eyebrow">Your dream trace</p><h1>{story.title}</h1><p>{story.summary}</p>
-        <div className="mood-row">{story.mood.map((mood) => <span key={mood}>{mood}</span>)}</div>
+      <header className="story-header"><p className="eyebrow">Dream journal</p><h1>{story.title}</h1><p>{story.summary}</p>
+        <div aria-label={`Mood: ${story.mood.join(", ")}`} className="mood-row">
+          {story.mood.map((mood) => <span key={mood}>{mood}</span>)}</div>
       </header>
-      <div className="scene-strip">{story.scenes.map((scene) =>
-        <SceneCard dreamId={story.id} key={scene.id} onStoryChanged={onStoryChanged} scene={scene} />)}</div>
-      <div className="story-actions"><Link className="button ghost" href="/capture">Trace another</Link>
+      <div className="story-sequence">{story.scenes.map((scene) =>
+        <SceneCard dreamId={story.id} key={scene.id} onStoryChanged={onStoryChanged}
+          scene={scene} totalMoments={story.scenes.length} />)}</div>
+      <div className="story-actions"><Link className="button ghost" href="/capture">Record another dream</Link>
         <Link className="button primary" href="/journal">Open journal</Link></div>
     </section>
   );
 }
 
-function FailureState({ story }: { readonly story: DreamStory }) {
-  return <StateMessage title="The trace broke apart"
-    copy={`Generation stopped during ${story.failedStage ?? "processing"}. No duplicate paid request was submitted.`} />;
+function FailureState() {
+  return <StateMessage title="We couldn’t finish this story"
+    copy="Your dream is still saved in your journal. You can return to it or record another." />;
 }
 
 function StateMessage({ title, copy }: { readonly title: string; readonly copy: string }) {
   return <section className="processing-panel"><p className="eyebrow">DreamTrace</p><h1>{title}</h1><p>{copy}</p>
-    <Link className="button ghost" href="/capture">Return to capture</Link></section>;
+    <Link className="button ghost" href="/capture">Record a dream</Link></section>;
 }
 
 function useDreamStory(dreamId: string): {
@@ -193,11 +200,42 @@ async function requestTranscriptConfirmation(dreamId: string, transcript: string
 }
 
 function stageLabel(status: DreamStory["status"]): string {
-  return STAGES.find(([value]) => value === status)?.[1] ?? "Preparing the trace";
+  if (status === AUDIO_STAGE[0]) return AUDIO_STAGE[1];
+  return STORY_STAGES.find(([value]) => value === status)?.[1] ?? "Preparing your story";
 }
 
-function stageClass(current: DreamStory["status"], candidate: string): string {
-  const currentIndex = STAGES.findIndex(([value]) => value === current);
-  const candidateIndex = STAGES.findIndex(([value]) => value === candidate);
+export function storyProgress(story: Pick<DreamStory, "status" | "scenes">): {
+  readonly title: string;
+  readonly copy: string;
+} {
+  const total = story.scenes.length;
+  const completed = story.scenes.filter((scene) => scene.imageUrl).length;
+  if (story.status === "GENERATING_ANCHOR" && total > 0) {
+    return momentProgress(1, total);
+  }
+  if (story.status === "GENERATING_SCENES" && total > 0) {
+    return momentProgress(Math.min(completed + 1, total), total);
+  }
+  return {
+    title: stageLabel(story.status),
+    copy: "You can leave this page. Your story will keep taking shape in your journal.",
+  };
+}
+
+function momentProgress(current: number, total: number): { readonly title: string; readonly copy: string } {
+  return {
+    title: `Creating moment ${current} of ${total}`,
+    copy: "You can leave this page. Your story will keep taking shape in your journal.",
+  };
+}
+
+function stageClass(
+  current: DreamStory["status"],
+  candidate: DreamStory["status"],
+  stages: readonly ProgressStage[],
+): string {
+  const currentIndex = stages.findIndex(([value]) => value === current);
+  const candidateIndex = stages.findIndex(([value]) => value === candidate);
+  if (currentIndex < 0) return candidateIndex === 0 ? "active" : "";
   return candidateIndex < currentIndex ? "done" : candidateIndex === currentIndex ? "active" : "";
 }

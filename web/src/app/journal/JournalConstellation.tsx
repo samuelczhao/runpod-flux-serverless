@@ -15,9 +15,9 @@ export function JournalConstellation({ dreams }: JournalConstellationProps): Rea
   const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
   return (
     <section aria-labelledby="constellation-title" className="constellation-panel">
-      <header><p className="eyebrow">Recurring motifs</p><h2 id="constellation-title">Your dream constellation</h2>
-        <p>Shared symbols draw a thread between the dreams where they return.</p></header>
-      {graph.nodes.length ? <ConstellationMap graph={graph} nodes={nodes} /> : <p className="constellation-empty">Complete a dream to place its first star.</p>}
+      <header><p className="eyebrow">Patterns</p><h2 id="constellation-title">What keeps returning</h2>
+        <p>Shared people, places, and symbols connect the dreams where they appear.</p></header>
+      {graph.nodes.length ? <ConstellationMap graph={graph} nodes={nodes} /> : <p className="constellation-empty">Patterns will appear as you add dreams to your journal.</p>}
     </section>
   );
 }
@@ -59,7 +59,7 @@ function MotifLegend({ graph, nodes }: {
   readonly graph: ReturnType<typeof buildConstellation>;
   readonly nodes: ReadonlyMap<string, ConstellationNode>;
 }): ReactElement {
-  if (!graph.recurringMotifs.length) return <p className="constellation-empty">Your recurring symbols will appear after they visit another dream.</p>;
+  if (!graph.recurringMotifs.length) return <p className="constellation-empty">A pattern will appear when something returns in another dream.</p>;
   return <><ul aria-label="Recurring motif legend" className="motif-legend">{graph.recurringMotifs.map((motif) =>
     <li key={motif.slug}><span aria-hidden="true" />{motif.label} · {motif.count} dreams</li>)}</ul>
     <ul className="sr-only">{graph.edges.map((edge) => <li key={edge.id}>
