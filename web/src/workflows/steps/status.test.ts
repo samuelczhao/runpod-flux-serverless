@@ -47,7 +47,7 @@ it("terminalizes a completed provider job with an invalid image artifact", async
 it("removes an uncommitted image after a definitive database rejection", async () => {
   configureCompletedImage();
   mocks.complete.mockRejectedValue(new DatabaseOperationError({
-    code: "40001", message: "completion conflict",
+    code: "P4090", message: "completion conflict",
   }));
   mocks.deleteImage.mockResolvedValue(undefined);
 

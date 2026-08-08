@@ -45,9 +45,10 @@ GPU platform behind one API call.
   delayed tombstone sweep cover source, normalized, and late-race objects.
 - Branch workflow claims prevent replayed API requests from starting duplicate durable
   workflows.
-- Atomic database counters cap each journal at two active dreams and six new dreams per
-  UTC hour, with a durable 100-dream global UTC-day ceiling. Idempotent replays are checked
-  before quota reservation and never consume a second allocation.
+- Atomic database counters cap each journal at two active dreams, six new dreams, and 12
+  scene edits per UTC hour. Dream creation and edits share a durable 100-allocation global
+  UTC-day ceiling. Dream Self has separate six-per-hour and 40-per-day preparation limits.
+  Idempotent replays are checked before quota reservation and never consume twice.
 - Failed or cancelled scene edits are terminal and can be retried with a new operation;
   an unknown submission outcome stops polling and is never blindly resubmitted.
 - Catchable failures atomically release the matching workflow claim or run while the
@@ -138,7 +139,7 @@ atomic claim/run recovery, verifies workflow exclusivity, stale-audio expiry, on
 enforcement, and foreign-user isolation, then removes its fixtures:
 
 ```bash
-DREAMTRACE_DB_INTEGRATION=1 pnpm --dir web test:db:branch-recovery
+pnpm --dir web test:db:branch-recovery:linked
 ```
 
 The separate quota fixture verifies concurrent mixed text/audio admission, idempotent
@@ -146,7 +147,7 @@ replay without double charging, stale-workflow protection, active and hourly cei
 and durable usage counters:
 
 ```bash
-DREAMTRACE_DB_INTEGRATION=1 pnpm --dir web test:db:quotas
+pnpm --dir web test:db:quotas:linked
 ```
 
 ## Paid end-to-end demo seed

@@ -12,6 +12,7 @@ const idSchema = z.object({ id: z.uuid() });
 const claimSchema = z.object({ job_id: z.uuid() });
 const FIXTURE_MOOD = ["wonder"] as const;
 const FIXTURE_SEED = 7;
+const FIXTURE_REQUEST_TIMEOUT_MS = 60_000;
 export const ONE_PIXEL_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
   "base64",
@@ -51,17 +52,28 @@ export function parseIntegrationEnv(): Env {
 export function createAdmin(env: Env): AdminClient {
   return createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { fetch: fixtureFetch },
   });
 }
 
 export async function createAnonymousUser(env: Env): Promise<string> {
   const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { fetch: fixtureFetch },
   });
   const result = await client.auth.signInAnonymously();
   assertNoError(result.error);
   if (!result.data.user) throw new Error("Anonymous user creation returned no user");
   return result.data.user.id;
+}
+
+export function fixtureFetch(
+  input: Parameters<typeof fetch>[0],
+  init?: Parameters<typeof fetch>[1],
+): Promise<Response> {
+  const timeout = AbortSignal.timeout(FIXTURE_REQUEST_TIMEOUT_MS);
+  const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+  return fetch(input, { ...init, signal });
 }
 
 export async function createFixture(

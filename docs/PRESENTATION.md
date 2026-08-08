@@ -35,7 +35,7 @@
 9. **Reliability — 45 seconds.** Explain persisted endpoint/request identity, workflow
    recovery, ambiguous-submission handling, cancellation, RLS, atomic database allocation
    ceilings, and the staged log-only IP burst rule.
-10. **Evidence — 30 seconds.** Show typecheck, 223 web tests, 54 worker tests, Production
+10. **Evidence — 30 seconds.** Show typecheck, 235 web tests, 54 worker tests, Production
    build, schema lint, live database recovery, one-/six-scene boundaries, and measured
    Runpod jobs.
 11. **Return to outcome — 15 seconds.** Refresh the live dream if ready; otherwise keep

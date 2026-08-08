@@ -159,7 +159,7 @@ The GPU-free web suite covers normalization limits and metadata removal, version
 consent, signed-upload response projection, stored/ready replay, source cleanup replay,
 ambiguous database completion, deterministic tombstone cleanup, provider-URL signing
 before job claim, stable request hashing, style/identity audio retry behavior, and prompt
-budget preservation. Current local result: 43 files and 223 tests passed, followed by
+budget preservation. Current local result: 44 files and 235 tests passed, followed by
 zero-warning ESLint and a successful Next.js Production build.
 
 Together, the GPU-free suite, linked-project fixture, and live synthetic-portrait run
@@ -185,20 +185,24 @@ commit without committing the face image or signed URLs.
 ## Public-demo admission controls
 
 The database is the authoritative GPU-allocation boundary. It allows at most two active
-or freshly prepared dreams per journal, six new dreams per journal per UTC hour, and 100
-new dreams across the demo per UTC day. Exact operation replays return the original dream
-without consuming another slot. The global counter is durable even when an anonymous
-user is deleted, so creating a new browser session cannot bypass the daily cost ceiling.
+or freshly prepared dreams per journal, six new dreams per journal per UTC hour, and 12
+scene edits per journal per UTC hour. Dream creation and scene edits share a ceiling of
+100 GPU allocations across the demo per UTC day. Dream Self separately allows six photo
+preparations per journal per UTC hour and 40 across the demo per UTC day, with at most two
+pending at once. Exact operation replays return the original record without consuming
+another slot. Global counters remain durable when an anonymous user is deleted, so a new
+browser session cannot bypass either daily ceiling.
 
 After applying migrations, run the opt-in linked verifier with a service credential:
 
 ```bash
-DREAMTRACE_DB_INTEGRATION=1 pnpm --dir web test:db:quotas
+pnpm --dir web test:db:quotas:linked
 ```
 
-It exercises concurrent text/audio admission, replay and conflict precedence, stale
-workflow claims, active and hourly denial codes, durable counters, and fixture cleanup.
-It consumes six slots from the current global day but does not call a GPU.
+It exercises concurrent text/audio admission, scene-edit and photo ceilings, replay and
+conflict precedence, stale workflow claims, denial codes, durable counters, and fixture
+cleanup. It consumes 18 shared GPU-allocation slots and six photo-preparation slots from
+the current UTC day, but it does not call a GPU.
 
 ## Queue check
 
