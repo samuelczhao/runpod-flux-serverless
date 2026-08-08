@@ -1,143 +1,82 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "../src/lib/database/types.ts";
+import {
+  FIXTURE_ENDPOINT,
+  FIXTURE_MODEL,
+  REQUEST_HASH,
+  assertNoError,
+  branchRpcArgs,
+  cleanup,
+  createAdmin,
+  createAnonymousUser,
+  createFixture,
+  parseIntegrationEnv,
+  serviceHeaders,
+  uploadArtifact,
+  type AdminClient,
+  type Env,
+  type Fixture,
+} from "./branch-recovery-fixture.ts";
+import { assertAudioPreparation } from "./audio-lifecycle-fixture.ts";
 
-const envSchema = z.object({
-  DREAMTRACE_DB_INTEGRATION: z.literal("1"),
-  NEXT_PUBLIC_SUPABASE_URL: z.url(),
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
-  SUPABASE_SECRET_KEY: z.string().min(1),
-});
-const idSchema = z.object({ id: z.uuid() });
-const claimSchema = z.object({ job_id: z.uuid() });
 const workflowClaimSchema = z.object({ workflow_id: z.string().nullable(), claimed: z.boolean() });
 const stateSchema = z.object({ status: z.string() });
-const REQUEST_HASH = "a".repeat(64);
-const FIXTURE_MODEL = "integration-fixture";
-const FIXTURE_ENDPOINT = "integration-endpoint";
-const FIXTURE_SEED = 7;
-const ONE_PIXEL_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-  "base64",
-);
-
-type AdminClient = SupabaseClient<Database>;
-type Env = z.infer<typeof envSchema>;
-
-interface Fixture {
-  readonly userId: string;
-  readonly dreamId: string;
-  readonly versionId: string;
-  readonly jobId: string;
-  readonly storagePath: string;
-}
+const endpointSchema = z.object({ endpoint_id: z.string() });
+const workflowStateSchema = z.object({
+  workflow_claim_token: z.string().nullable(), workflow_run_id: z.string().nullable(),
+});
 
 async function main(): Promise<void> {
-  const env = envSchema.parse(process.env);
+  const env = parseIntegrationEnv();
   const admin = createAdmin(env);
   const userId = await createAnonymousUser(env);
   const storagePaths: string[] = [];
   try {
-    const fixture = await createFixture(admin, userId, storagePaths);
-    await assertNullGuards(env, fixture);
-    await assertWorkflowClaiming(admin, fixture);
-    await assertForeignVersionHidden(env, admin, fixture.versionId);
-    await verifyRecovery(admin, fixture);
-    console.log("branch_recovery status=COMPLETED");
-  } finally {
-    await cleanup(admin, userId, storagePaths);
+    await verifyFixture(env, admin, userId, storagePaths);
+  } catch (error: unknown) {
+    await cleanupAfterFailure(admin, userId, storagePaths, error);
   }
+  await cleanup(admin, userId, storagePaths);
 }
 
-function createAdmin(env: Env): AdminClient {
-  return createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
-
-async function createAnonymousUser(env: Env): Promise<string> {
-  const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
-  const result = await client.auth.signInAnonymously();
-  assertNoError(result.error);
-  if (!result.data.user) throw new Error("Anonymous user creation returned no user");
-  return result.data.user.id;
-}
-
-async function createFixture(
+async function verifyFixture(
+  env: Env,
   admin: AdminClient,
   userId: string,
   storagePaths: string[],
-): Promise<Fixture> {
-  const dreamId = await insertDream(admin, userId);
-  const sceneId = await insertScene(admin, dreamId);
-  const parentId = await insertInitialVersion(admin, sceneId);
-  const parentPath = `${userId}/${dreamId}/${parentId}.png`;
-  storagePaths.push(parentPath);
-  await uploadArtifact(admin, parentPath);
-  await completeParent(admin, parentId, parentPath);
-  const versionId = await createBranchVersion(admin, userId, dreamId, parentId);
-  const storagePath = `${userId}/${dreamId}/${versionId}.png`;
-  storagePaths.push(storagePath);
-  const jobId = await claimBranchJob(admin, userId, dreamId, versionId);
-  return { userId, dreamId, versionId, jobId, storagePath };
+): Promise<void> {
+  await assertAudioPreparation(env, admin, userId);
+  const fixture = await createFixture(admin, userId, storagePaths);
+  await assertNullGuards(env, fixture);
+  await assertSingleBranchInvariant(env, admin, fixture);
+  await assertGenerationIdentity(admin, fixture);
+  await assertWorkflowClaiming(admin, fixture);
+  await assertForeignVersionHidden(env, admin, fixture.versionId);
+  await verifyRecovery(admin, fixture);
+  console.log("branch_recovery status=COMPLETED");
 }
 
-async function insertDream(admin: AdminClient, userId: string): Promise<string> {
-  const result = await admin.from("dreams").insert({
-    user_id: userId, input_mode: "text", transcript: "Integration fixture", status: "READY",
-  }).select("id").single();
-  assertNoError(result.error);
-  return idSchema.parse(result.data).id;
+async function assertSingleBranchInvariant(env: Env, admin: AdminClient, fixture: Fixture): Promise<void> {
+  const parentId = await parentIdForFixture(env, fixture.versionId);
+  const duplicate = await admin.rpc("create_scene_branch", branchRpcArgs(
+    fixture.userId, fixture.dreamId, parentId,
+  ));
+  if (!duplicate.error) throw new Error("A scene accepted more than one generated branch");
 }
 
-async function insertScene(admin: AdminClient, dreamId: string): Promise<string> {
-  const result = await admin.from("scenes").insert({
-    dream_id: dreamId, ordinal: 2, caption: "Fixture scene", prompt: "Fixture prompt",
-  }).select("id").single();
-  assertNoError(result.error);
-  return idSchema.parse(result.data).id;
-}
-
-async function insertInitialVersion(admin: AdminClient, sceneId: string): Promise<string> {
-  const result = await admin.from("scene_versions").insert({
-    scene_id: sceneId, model: FIXTURE_MODEL, seed: FIXTURE_SEED, status: "PENDING",
-  }).select("id").single();
-  assertNoError(result.error);
-  return idSchema.parse(result.data).id;
-}
-
-async function completeParent(admin: AdminClient, id: string, storagePath: string): Promise<void> {
-  const result = await admin.from("scene_versions").update({
-    storage_path: storagePath, status: "COMPLETED", is_selected: true,
-  }).eq("id", id);
-  assertNoError(result.error);
-}
-
-async function createBranchVersion(
+async function cleanupAfterFailure(
   admin: AdminClient,
   userId: string,
-  dreamId: string,
-  parentId: string,
-): Promise<string> {
-  const result = await admin.rpc("create_scene_branch", branchRpcArgs(userId, dreamId, parentId));
-  assertNoError(result.error);
-  return z.object({ version_id: z.uuid() }).array().min(1).parse(result.data)[0].version_id;
-}
-
-async function claimBranchJob(
-  admin: AdminClient,
-  userId: string,
-  dreamId: string,
-  versionId: string,
-): Promise<string> {
-  const result = await admin.rpc("claim_generation_job", {
-    p_user_id: userId, p_dream_id: dreamId, p_scene_version_id: versionId,
-    p_stage: "branch", p_operation_key: crypto.randomUUID(),
-    p_model: FIXTURE_MODEL, p_endpoint_id: FIXTURE_ENDPOINT, p_request_hash: REQUEST_HASH,
-  });
-  assertNoError(result.error);
-  const claim = claimSchema.array().min(1).parse(result.data)[0];
-  return claim.job_id;
+  storagePaths: readonly string[],
+  error: unknown,
+): Promise<never> {
+  try {
+    await cleanup(admin, userId, storagePaths);
+  } catch (cleanupError: unknown) {
+    throw new AggregateError([error, cleanupError], "Fixture assertions and cleanup both failed");
+  }
+  throw error;
 }
 
 async function verifyRecovery(admin: AdminClient, fixture: Fixture): Promise<void> {
@@ -166,13 +105,6 @@ async function recordRecovery(admin: AdminClient, jobId: string): Promise<void> 
   assertNoError(result.error);
 }
 
-async function uploadArtifact(admin: AdminClient, storagePath: string): Promise<void> {
-  const result = await admin.storage.from("dream-images").upload(storagePath, ONE_PIXEL_PNG, {
-    contentType: "image/png", upsert: false,
-  });
-  assertNoError(result.error);
-}
-
 async function completeJob(admin: AdminClient, fixture: Fixture): Promise<void> {
   const result = await admin.rpc("complete_generation_job", {
     p_job_id: fixture.jobId, p_storage_path: fixture.storagePath,
@@ -193,15 +125,6 @@ async function assertJobState(admin: AdminClient, id: string, expected: string):
   if (stateSchema.parse(result.data).status !== expected) throw new Error(`Job did not reach ${expected}`);
 }
 
-async function cleanup(admin: AdminClient, userId: string, storagePaths: readonly string[]): Promise<void> {
-  if (storagePaths.length) {
-    const storage = await admin.storage.from("dream-images").remove([...storagePaths]);
-    assertNoError(storage.error);
-  }
-  const auth = await admin.auth.admin.deleteUser(userId);
-  assertNoError(auth.error);
-}
-
 async function assertNullGuards(env: Env, fixture: Fixture): Promise<void> {
   const base = branchRpcArgs(fixture.userId, fixture.dreamId, await parentIdForFixture(env, fixture.versionId));
   await expectRpcFailure(env, "create_scene_branch", { ...base, p_seed: null });
@@ -220,12 +143,87 @@ async function assertWorkflowClaiming(admin: AdminClient, fixture: Fixture): Pro
   const duplicate = await claimWorkflow(admin, fixture, crypto.randomUUID());
   if (!first.claimed || duplicate.claimed) throw new Error("Branch workflow claim was not exclusive");
   const runId = `integration-run-${crypto.randomUUID()}`;
-  const recorded = await admin.rpc("record_branch_workflow", {
-    p_version_id: fixture.versionId, p_claim_token: firstToken, p_run_id: runId,
+  await recordWorkflow(admin, fixture.versionId, firstToken, runId);
+  await assertRunReplay(admin, fixture, runId);
+  await assertRunRelease(admin, fixture, firstToken, runId);
+  await assertClaimRelease(admin, fixture);
+}
+
+async function recordWorkflow(
+  admin: AdminClient,
+  versionId: string,
+  token: string,
+  runId: string,
+): Promise<void> {
+  const result = await admin.rpc("record_branch_workflow", {
+    p_version_id: versionId, p_claim_token: token, p_run_id: runId,
   });
-  assertNoError(recorded.error);
+  assertNoError(result.error);
+}
+
+async function assertRunReplay(admin: AdminClient, fixture: Fixture, runId: string): Promise<void> {
   const replay = await claimWorkflow(admin, fixture, crypto.randomUUID());
   if (replay.claimed || replay.workflow_id !== runId) throw new Error("Branch workflow replay diverged");
+}
+
+async function assertRunRelease(
+  admin: AdminClient,
+  fixture: Fixture,
+  token: string,
+  runId: string,
+): Promise<void> {
+  await releaseWorkflowExecution(admin, fixture.versionId, token, `wrong-${runId}`);
+  const protectedReplay = await claimWorkflow(admin, fixture, crypto.randomUUID());
+  if (protectedReplay.workflow_id !== runId) throw new Error("A stale run cleared the active workflow");
+  await releaseWorkflowExecution(admin, fixture.versionId, token, runId);
+}
+
+async function assertClaimRelease(admin: AdminClient, fixture: Fixture): Promise<void> {
+  const recoveryToken = crypto.randomUUID();
+  const recovery = await claimWorkflow(admin, fixture, recoveryToken);
+  if (!recovery.claimed) throw new Error("A failed branch workflow could not be reclaimed");
+  await releaseWorkflowExecution(admin, fixture.versionId, crypto.randomUUID(), crypto.randomUUID());
+  const protectedClaim = await claimWorkflow(admin, fixture, crypto.randomUUID());
+  if (protectedClaim.claimed) throw new Error("A stale token cleared a newer workflow claim");
+  await releaseWorkflowExecution(admin, fixture.versionId, recoveryToken, crypto.randomUUID());
+  await assertWorkflowStateCleared(admin, fixture.versionId);
+}
+
+async function releaseWorkflowExecution(
+  admin: AdminClient,
+  versionId: string,
+  token: string,
+  runId: string,
+): Promise<void> {
+  const result = await admin.rpc("release_branch_workflow_execution", {
+    p_version_id: versionId, p_claim_token: token, p_run_id: runId,
+  });
+  assertNoError(result.error);
+}
+
+async function assertWorkflowStateCleared(admin: AdminClient, versionId: string): Promise<void> {
+  const result = await admin.from("scene_versions")
+    .select("workflow_claim_token,workflow_run_id").eq("id", versionId).single();
+  assertNoError(result.error);
+  const state = workflowStateSchema.parse(result.data);
+  if (state.workflow_claim_token || state.workflow_run_id) {
+    throw new Error("Branch workflow recovery left stale ownership state");
+  }
+}
+
+async function assertGenerationIdentity(admin: AdminClient, fixture: Fixture): Promise<void> {
+  const stored = await admin.from("generation_jobs").select("endpoint_id").eq("id", fixture.jobId).single();
+  assertNoError(stored.error);
+  if (endpointSchema.parse(stored.data).endpoint_id !== FIXTURE_ENDPOINT) {
+    throw new Error("Generation job did not persist its endpoint identity");
+  }
+  const conflict = await admin.rpc("claim_generation_job", {
+    p_user_id: fixture.userId, p_dream_id: fixture.dreamId,
+    p_scene_version_id: fixture.versionId, p_stage: "branch",
+    p_operation_key: fixture.jobOperationKey, p_model: FIXTURE_MODEL,
+    p_endpoint_id: "different-endpoint", p_request_hash: REQUEST_HASH,
+  });
+  if (!conflict.error) throw new Error("Generation identity accepted a changed endpoint");
 }
 
 async function claimWorkflow(admin: AdminClient, fixture: Fixture, token: string) {
@@ -269,27 +267,6 @@ async function expectRpcFailure(
     method: "POST", headers: serviceHeaders(env), body: JSON.stringify(body),
   });
   if (response.ok) throw new Error(`${functionName} unexpectedly accepted a NULL identity`);
-}
-
-function branchRpcArgs(userId: string, dreamId: string, parentId: string) {
-  return {
-    p_user_id: userId, p_dream_id: dreamId, p_parent_version_id: parentId,
-    p_instruction: "Turn the fixture moon into a doorway", p_model: FIXTURE_MODEL,
-    p_seed: FIXTURE_SEED, p_operation_key: `integration:${crypto.randomUUID()}`,
-    p_request_hash: REQUEST_HASH,
-  };
-}
-
-function serviceHeaders(env: Env): Readonly<Record<string, string>> {
-  return {
-    apikey: env.SUPABASE_SECRET_KEY,
-    Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
-    "Content-Type": "application/json",
-  };
-}
-
-function assertNoError(error: { readonly message: string } | null): void {
-  if (error) throw new Error(error.message);
 }
 
 await main();

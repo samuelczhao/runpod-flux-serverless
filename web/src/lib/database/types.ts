@@ -18,6 +18,11 @@ type DreamRow = {
   audio_mime_type: string | null;
   audio_size_bytes: number | null;
   audio_uploaded_at: string | null;
+  audio_operation_key: string | null;
+  audio_upload_expires_at: string | null;
+  audio_cleanup_run_id: string | null;
+  audio_cleanup_claim_token: string | null;
+  audio_cleanup_claimed_at: string | null;
   title: string | null;
   summary: string | null;
   visual_bible: string | null;
@@ -97,6 +102,7 @@ type DreamInsert = {
   user_id: string;
   input_mode: string;
   transcript?: string | null;
+  mood?: string[];
   status?: DreamStatus;
   retain_audio?: boolean;
 }
@@ -174,6 +180,34 @@ export type Database = {
       };
       mark_audio_deleted: VoidFunction<{ p_dream_id: string; p_storage_path: string }>;
       prepare_audio_deletion: { Args: { p_dream_id: string }; Returns: string | null };
+      prepare_audio_dream: {
+        Args: { p_user_id: string; p_operation_key: string; p_mime_type: string };
+        Returns: string;
+      };
+      claim_audio_cleanup_workflow: {
+        Args: { p_user_id: string; p_dream_id: string; p_claim_token: string };
+        Returns: { workflow_id: string | null; claimed: boolean }[];
+      };
+      record_audio_cleanup_workflow: VoidFunction<{
+        p_dream_id: string; p_claim_token: string; p_run_id: string;
+      }>;
+      release_audio_cleanup_execution: VoidFunction<{
+        p_dream_id: string; p_claim_token: string; p_run_id: string;
+      }>;
+      complete_audio_cleanup_workflow: VoidFunction<{
+        p_dream_id: string; p_run_id: string;
+      }>;
+      expire_stale_audio_processing: {
+        Args: { p_dream_id: string; p_user_id: string };
+        Returns: string | null;
+      };
+      prepare_expired_audio_draft_cleanup: {
+        Args: { p_dream_id: string; p_user_id: string };
+        Returns: string | null;
+      };
+      complete_expired_audio_draft_cleanup: VoidFunction<{
+        p_dream_id: string; p_user_id: string; p_storage_path: string;
+      }>;
       create_scene_branch: {
         Args: {
           p_user_id: string;
@@ -221,6 +255,10 @@ export type Database = {
         p_version_id: string; p_claim_token: string; p_run_id: string;
       }>;
       release_branch_workflow_claim: VoidFunction<{ p_version_id: string; p_claim_token: string }>;
+      release_branch_workflow_run: VoidFunction<{ p_version_id: string; p_run_id: string }>;
+      release_branch_workflow_execution: VoidFunction<{
+        p_version_id: string; p_claim_token: string; p_run_id: string;
+      }>;
       update_generation_job: VoidFunction<{
         p_job_id: string;
         p_expected: JobStatus;

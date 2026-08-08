@@ -2,6 +2,8 @@
 
 ## Known Pitfalls
 
+- The Vercel CLI is not installed in the project or shell path; invoke it with `npx vercel --cwd web`, not bare `vercel` or `pnpm exec vercel`.
+
 - Match the validation scopes in `.github/workflows/ci.yml`. Mypy checks `handler.py`,
   `src`, and `scripts`; pytest and Ruff cover `tests`. Do not expand the mypy scope
   without first resolving third-party stubs and test-only typing patterns.
@@ -34,3 +36,29 @@
 - Runpod endpoint responses can embed worker environment secrets when
   `includeWorkers=true`. Project only an explicit safe-field allowlist with `jq`; never
   print the complete worker object or its `env` field.
+- macOS sync can create untracked Finder-style copies such as `file 2.ts` during a
+  branch update. Before migrations or deployment, inspect `git status`, compare every
+  copy byte-for-byte, and quarantine exact duplicates outside the repository.
+- macOS ships Bash 3.2 without `mapfile`. Keep deployment and verification snippets
+  portable; capture a small number of values into separately quoted variables instead.
+- Shell cleanup can mask a failed verification command by becoming the script's final
+  successful command. Enable fail-fast behavior or preserve and return the check's exit
+  status before unsetting temporary credentials.
+- Linked-database fixtures must satisfy invariants added by later migrations. In
+  particular, every fixture inserted directly as `READY` needs one to three allowed
+  mood labels.
+- GitHub app grants are provider-specific. A repository authorized for Runpod is not
+  automatically visible to Vercel; `vercel git connect` requires a separate Vercel
+  GitHub app installation with access to the repository.
+- Workflow-level runtime failures and cancellations can bypass application `catch`
+  blocks. Persist the run ID, reconcile terminal status outside the workflow, and clear
+  only exact matching database ownership before starting a replacement.
+- When moving a contiguous function block between TypeScript modules, inspect both cut
+  boundaries immediately; a partial declaration or omitted dependency can survive a
+  broad patch even when the destination file is correct.
+- When adding a React callback prop, update the destructured parameter and its type in
+  the same patch; adding only the type and call site leaves an undefined callback.
+- After restructuring async error handling, inspect the final control flow immediately;
+  temporary unconditional branches must not survive into the working tree.
+- Before replacing a database constraint, check existing lifecycle shapes. Deleted audio
+  intentionally retains `audio_uploaded_at` as provenance after path, MIME, and size clear.

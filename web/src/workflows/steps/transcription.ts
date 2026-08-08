@@ -9,7 +9,7 @@ import {
   transitionGenerationJob,
   type JobClaim,
 } from "@/lib/database/jobs";
-import { createDreamAudioUrl, deleteDreamAudio } from "@/lib/database/storage";
+import { createDreamAudioUrl } from "@/lib/database/storage";
 import { getQueueStatus, submitQueueJob, type QueueStatus } from "@/lib/runpod/queue";
 import { recordSubmissionFailure } from "@/lib/runpod/submission";
 import { buildWhisperInput, normalizeWhisperOutput } from "@/lib/runpod/whisper";
@@ -48,10 +48,6 @@ export async function persistTranscriptionStep(jobId: string): Promise<void> {
   "use step";
   const job = await getGenerationJob(jobId);
   if (job.status !== "COMPLETED") await completeFromProvider(job);
-  const dream = await getProcessingDream(job.dream_id);
-  if (!dream.retain_audio && dream.audio_storage_path) {
-    await deleteDreamAudio(dream.id, dream.audio_storage_path);
-  }
 }
 
 async function claimTranscriptionJob(

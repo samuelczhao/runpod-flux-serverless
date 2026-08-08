@@ -55,6 +55,23 @@ export async function deleteDreamAudio(dreamId: string, path: string): Promise<v
   throwIfDatabaseError(update.error);
 }
 
+export async function deleteExpiredDraftAudio(dreamId: string, userId: string): Promise<boolean> {
+  const client = createSupabaseAdminClient();
+  const prepared = await client.rpc("prepare_expired_audio_draft_cleanup", {
+    p_dream_id: dreamId, p_user_id: userId,
+  });
+  throwIfDatabaseError(prepared.error);
+  if (prepared.data === null) return false;
+  const path = z.string().min(1).parse(prepared.data);
+  const removal = await client.storage.from(AUDIO_BUCKET).remove([path]);
+  throwIfDatabaseError(removal.error);
+  const completed = await client.rpc("complete_expired_audio_draft_cleanup", {
+    p_dream_id: dreamId, p_user_id: userId, p_storage_path: path,
+  });
+  throwIfDatabaseError(completed.error);
+  return true;
+}
+
 export async function storeDreamPng(
   userId: string,
   dreamId: string,

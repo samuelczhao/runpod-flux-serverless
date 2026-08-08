@@ -59,6 +59,14 @@ export async function getGenerationJobByVersion(versionId: string): Promise<Gene
   return parseDatabaseRow(jobSchema, result.data);
 }
 
+export async function getActiveTranscriptionJob(dreamId: string): Promise<GenerationJob | null> {
+  const result = await createSupabaseAdminClient().from("generation_jobs").select(JOB_FIELDS)
+    .eq("dream_id", dreamId).eq("stage", "transcription")
+    .in("status", ["QUEUED", "RUNNING"]).maybeSingle();
+  throwIfDatabaseError(result.error);
+  return result.data ? parseDatabaseRow(jobSchema, result.data) : null;
+}
+
 export async function recordGenerationSubmission(jobId: string, externalId: string): Promise<void> {
   const result = await createSupabaseAdminClient().rpc("record_generation_submission", {
     p_job_id: jobId, p_external_id: externalId,

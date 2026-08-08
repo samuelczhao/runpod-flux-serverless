@@ -5,10 +5,18 @@ interface DatabaseError {
   readonly message: string;
 }
 
-export function throwIfDatabaseError(error: DatabaseError | null): void {
-  if (error) {
-    throw new Error(`Database operation failed${error.code ? ` (${error.code})` : ""}: ${error.message}`);
+export class DatabaseOperationError extends Error {
+  public readonly code: string | undefined;
+
+  public constructor(error: DatabaseError) {
+    super(`Database operation failed${error.code ? ` (${error.code})` : ""}: ${error.message}`);
+    this.name = "DatabaseOperationError";
+    this.code = error.code;
   }
+}
+
+export function throwIfDatabaseError(error: DatabaseError | null): void {
+  if (error) throw new DatabaseOperationError(error);
 }
 
 export function parseDatabaseRow<T>(schema: z.ZodType<T>, data: unknown): T {

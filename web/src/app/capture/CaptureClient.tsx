@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -8,32 +8,41 @@ import { AudioCapture } from "@/app/capture/AudioCapture";
 
 const createResponseSchema = z.object({ dreamId: z.uuid(), runId: z.string() }).strict();
 
-export function CaptureClient() {
+export function CaptureClient(): ReactElement {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [mode, setMode] = useState<"speak" | "type">("speak");
-  useEffect(() => { void prepareAnonymousSession(setReady, setError); }, []);
+  const [audioBusy, setAudioBusy] = useState(false);
+  const updateAudioBusy = useCallback((busy: boolean) => setAudioBusy(busy), []);
+  useEffect(() => { void prepareAnonymousSession(setReady, setSessionError); }, []);
   const submit = (event: FormEvent<HTMLFormElement>) => void submitCapture(
     event, transcript, (path) => router.push(path), setSubmitting, setError,
   );
-  return <><CaptureModeSwitch mode={mode} setMode={setMode} />
-    {mode === "speak" ? <AudioCapture ready={ready} onComplete={(id) => router.push(`/dream/${id}`)} />
+  return <><CaptureModeSwitch disabled={audioBusy} mode={mode} setMode={setMode} />
+    {sessionError ? <p className="form-error" role="alert">{sessionError}</p> : null}
+    {mode === "speak" ? <AudioCapture ready={ready} onBusyChange={updateAudioBusy}
+      onComplete={(id) => router.push(`/dream/${id}`)} />
       : <CaptureForm {...{ ready, transcript, setTranscript, error, submitting, submit }} />}</>;
 }
 
 function CaptureModeSwitch({
   mode,
   setMode,
+  disabled,
 }: {
   readonly mode: "speak" | "type";
   readonly setMode: (mode: "speak" | "type") => void;
+  readonly disabled: boolean;
 }) {
   return <div className="capture-mode" aria-label="Dream input method" role="group">
-    <button aria-pressed={mode === "speak"} onClick={() => setMode("speak")} type="button">Speak</button>
-    <button aria-pressed={mode === "type"} onClick={() => setMode("type")} type="button">Type</button>
+    <button aria-pressed={mode === "speak"} disabled={disabled}
+      onClick={() => setMode("speak")} type="button">Speak</button>
+    <button aria-pressed={mode === "type"} disabled={disabled}
+      onClick={() => setMode("type")} type="button">Type</button>
   </div>;
 }
 

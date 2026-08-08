@@ -1,0 +1,43 @@
+import { describe, expect, it } from "vitest";
+import { shouldPollDream, type DreamStory, type StoryVersion } from "@/lib/domain/story";
+
+const ID = "5deefbe0-2003-4af4-b75e-0bd9c22bed60";
+
+function story(status: DreamStory["status"], versions: StoryVersion[] = []): DreamStory {
+  return {
+    id: ID, status, inputMode: "text", transcript: "A dream", awaitingTranscriptReview: false,
+    title: null, summary: null, mood: [], failedStage: null, errorCode: null,
+    scenes: versions.length ? [{ id: ID, ordinal: 1, caption: "Moon", versionId: ID,
+      imageUrl: null, versions }] : [],
+  };
+}
+
+function version(status: StoryVersion["status"]): StoryVersion {
+  return { id: ID, parentVersionId: ID, editInstruction: "More moonlight", status,
+    isSelected: false, imageUrl: null };
+}
+
+describe("dream story polling", () => {
+  it.each(["DRAFT", "PLANNING", "GENERATING_ANCHOR", "GENERATING_SCENES"] as const)(
+    "continues while %s can still advance",
+    (status) => expect(shouldPollDream(story(status))).toBe(true),
+  );
+
+  it("stops after a failed dream", () => {
+    expect(shouldPollDream(story("FAILED"))).toBe(false);
+  });
+
+  it.each(["PENDING", "SUBMITTING", "SUBMIT_UNKNOWN", "QUEUED", "RUNNING"] as const)(
+    "keeps a READY dream fresh while a branch is %s",
+    (status) => expect(shouldPollDream(story("READY", [version(status)]))).toBe(true),
+  );
+
+  it.each(["COMPLETED", "FAILED", "CANCELLED"] as const)(
+    "stops a READY dream after its branch is %s",
+    (status) => expect(shouldPollDream(story("READY", [version(status)]))).toBe(false),
+  );
+
+  it("stops a READY dream without a branch", () => {
+    expect(shouldPollDream(story("READY"))).toBe(false);
+  });
+});

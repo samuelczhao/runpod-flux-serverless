@@ -35,8 +35,21 @@ async function handleBranchRequest(
   const versionId = await claimBranch(userId, input, parent.storage_path);
   const version = await getSceneVersion(versionId);
   if (version.status === "COMPLETED") return Response.json({ versionId, runId: null }, { status: 200 });
-  const run = await startBranchGeneration(versionId, userId);
-  return Response.json({ versionId, runId: run.runId }, { status: 202 });
+  return startOrRecoverBranch(versionId, userId);
+}
+
+async function startOrRecoverBranch(versionId: string, userId: string): Promise<Response> {
+  try {
+    const run = await startBranchGeneration(versionId, userId);
+    const latest = await getSceneVersion(versionId);
+    const status = latest.status === "COMPLETED" ? 200 : 202;
+    return Response.json({ versionId, runId: status === 200 ? null : run.runId }, { status });
+  } catch (error: unknown) {
+    if ((await getSceneVersion(versionId)).status === "COMPLETED") {
+      return Response.json({ versionId, runId: null }, { status: 200 });
+    }
+    throw error;
+  }
 }
 
 async function claimBranch(
