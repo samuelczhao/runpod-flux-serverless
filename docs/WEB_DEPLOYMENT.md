@@ -107,9 +107,10 @@ merging; merging `main` then publishes Production automatically and replaces ste
 ## Abuse controls
 
 Supabase is the authoritative admission boundary: two active dreams per journal, six new
-dreams and 12 scene edits per journal per UTC hour, and 100 combined dream/edit GPU
-allocations globally per UTC day. Dream Self has a separate six-photo hourly journal
-limit, 40-photo global daily limit, and two-pending ceiling. These counters are atomic
+dreams and 12 scene edits per journal per UTC hour. A story conservatively reserves eight
+Runpod job slots and an edit reserves one from a 100-slot global UTC-day budget. Dream
+Self has a separate six-photo hourly journal limit, 40-photo global daily limit, and
+two-pending ceiling. These counters are atomic
 across Vercel instances and exact operation replays do not consume another slot. Verify
 them with `pnpm --dir web test:db:quotas:linked` after applying migrations.
 

@@ -5,6 +5,7 @@ import { audioMimeTypeSchema, MAX_AUDIO_BYTES } from "@/lib/domain/audio";
 import type { DreamStatus } from "@/lib/domain/dream";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DreamAccessError, startDreamTranscription } from "@/workflows/start";
+import { quotaResponse } from "@/lib/http/quotaResponse";
 
 const requestSchema = z.object({
   path: z.string().min(1).max(300),
@@ -31,6 +32,8 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     if (error instanceof DatabaseOperationError && error.code === "P0002") {
       return Response.json({ error: "Uploaded audio was not found" }, { status: 404 });
     }
+    const quota = quotaResponse(error);
+    if (quota) return quota;
     return Response.json({ error: "Transcription could not be started" }, { status: 503 });
   }
 }

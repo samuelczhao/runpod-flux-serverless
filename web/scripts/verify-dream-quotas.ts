@@ -16,8 +16,10 @@ const ACTIVE_LIMIT_CODE = "P4291";
 const HOURLY_LIMIT_CODE = "P4292";
 const BRANCH_HOURLY_LIMIT_CODE = "P4294";
 const IDENTITY_HOURLY_LIMIT_CODE = "P4295";
+const IDENTITY_PENDING_LIMIT_CODE = "P4297";
 const BRANCH_HOURLY_LIMIT = 12;
 const IDENTITY_HOURLY_LIMIT = 6;
+const STORY_GPU_SLOT_RESERVATION = 8;
 const STALE_DRAFT_AGE_MS = 16 * 60 * 1_000;
 
 async function main(): Promise<void> {
@@ -71,10 +73,14 @@ async function verifyQuotaLifecycle(
   await expectQuotaCode(claimDream(admin, stale, userId), ACTIVE_LIMIT_CODE);
   await expectQuotaCode(prepareTextResult(admin, userId, crypto.randomUUID(), "A third active dream."), ACTIVE_LIMIT_CODE);
 
-  await closeDreams(admin, [stale, text, audio]);
+  await expireAudioPreparation(admin, audio);
+  const blocker = await prepareText(
+    admin, userId, crypto.randomUUID(), "A second bright forest held the horizon open.",
+  );
+  await expectQuotaCode(prepareAudioResult(admin, userId, audioOperation), ACTIVE_LIMIT_CODE);
+
+  await closeDreams(admin, [stale, text, audio, blocker]);
   await closeDreams(admin, await preparePair(admin, userId));
-  const sixth = await prepareAudio(admin, userId, crypto.randomUUID());
-  await closeDreams(admin, [sixth]);
   await expectQuotaCode(
     prepareTextResult(admin, userId, crypto.randomUUID(), "A seventh dream reached the horizon."),
     HOURLY_LIMIT_CODE,
@@ -89,8 +95,14 @@ async function verifyIdentityQuota(admin: AdminClient, userId: string): Promise<
   const firstId = await prepareIdentity(admin, userId, firstOperation);
   const replayId = await prepareIdentity(admin, userId, firstOperation);
   if (replayId !== firstId) throw new Error("Identity quota replay changed the reference ID");
+  const secondId = await prepareIdentity(admin, userId, crypto.randomUUID());
+  await expectQuotaCode(
+    prepareIdentityResult(admin, userId, crypto.randomUUID()),
+    IDENTITY_PENDING_LIMIT_CODE,
+  );
   await failIdentity(admin, firstId);
-  for (let attempt = 1; attempt < IDENTITY_HOURLY_LIMIT; attempt += 1) {
+  await failIdentity(admin, secondId);
+  for (let attempt = 2; attempt < IDENTITY_HOURLY_LIMIT; attempt += 1) {
     await failIdentity(admin, await prepareIdentity(admin, userId, crypto.randomUUID()));
   }
   await expectQuotaCode(
@@ -285,12 +297,23 @@ async function prepareAudio(
   userId: string,
   operationId: string,
 ): Promise<string> {
-  const result = await admin.rpc("prepare_audio_dream", {
+  const result = await prepareAudioResult(admin, userId, operationId);
+  assertNoError(result.error);
+  return dreamIdSchema.parse(result.data);
+}
+
+function prepareAudioResult(admin: AdminClient, userId: string, operationId: string) {
+  return admin.rpc("prepare_audio_dream", {
     p_user_id: userId, p_operation_key: operationId, p_mime_type: "audio/webm",
     p_identity_reference_id: null, p_visual_style: "watercolor-memory",
   });
+}
+
+async function expireAudioPreparation(admin: AdminClient, dreamId: string): Promise<void> {
+  const result = await admin.from("dreams").update({
+    audio_upload_expires_at: new Date(Date.now() - 60_000).toISOString(),
+  }).eq("id", dreamId);
   assertNoError(result.error);
-  return dreamIdSchema.parse(result.data);
 }
 
 function claimDream(admin: AdminClient, dreamId: string, userId: string) {
@@ -346,7 +369,7 @@ async function assertCounters(
     throw new Error(`Expected ${IDENTITY_HOURLY_LIMIT} photo allocations, received ${identityUsed}`);
   }
   const after = await globalUsage(admin);
-  if (after < globalBefore + 6 + BRANCH_HOURLY_LIMIT) {
+  if (after < globalBefore + (6 * STORY_GPU_SLOT_RESERVATION) + BRANCH_HOURLY_LIMIT) {
     throw new Error("Global quota did not record all allocations");
   }
   const identityAfter = await identityGlobalUsage(admin);

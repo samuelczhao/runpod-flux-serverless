@@ -46,6 +46,7 @@ it("rejects missing consent without allocating storage", async () => {
 it.each([
   ["P4295", "hourly photo limit"],
   ["P4296", "today’s photo limit"],
+  ["P4297", "Two photos are already being prepared"],
 ])("returns a useful response for photo quota %s", async (code, message) => {
   mocks.prepare.mockRejectedValue(new DatabaseOperationError({ code, message: "quota" }));
 

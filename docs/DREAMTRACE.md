@@ -46,8 +46,9 @@ GPU platform behind one API call.
 - Branch workflow claims prevent replayed API requests from starting duplicate durable
   workflows.
 - Atomic database counters cap each journal at two active dreams, six new dreams, and 12
-  scene edits per UTC hour. Dream creation and edits share a durable 100-allocation global
-  UTC-day ceiling. Dream Self has separate six-per-hour and 40-per-day preparation limits.
+  scene edits per UTC hour. Each story conservatively reserves eight Runpod job slots and
+  each edit reserves one from a durable 100-slot global UTC-day ceiling. Dream Self has
+  separate six-per-hour and 40-per-day preparation limits, with at most two pending.
   Idempotent replays are checked before quota reservation and never consume twice.
 - Failed or cancelled scene edits are terminal and can be retried with a new operation;
   an unknown submission outcome stops polling and is never blindly resubmitted.

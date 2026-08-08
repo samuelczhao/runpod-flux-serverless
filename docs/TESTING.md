@@ -159,7 +159,7 @@ The GPU-free web suite covers normalization limits and metadata removal, version
 consent, signed-upload response projection, stored/ready replay, source cleanup replay,
 ambiguous database completion, deterministic tombstone cleanup, provider-URL signing
 before job claim, stable request hashing, style/identity audio retry behavior, and prompt
-budget preservation. Current local result: 44 files and 235 tests passed, followed by
+budget preservation. Current local result: 44 files and 237 tests passed, followed by
 zero-warning ESLint and a successful Next.js Production build.
 
 Together, the GPU-free suite, linked-project fixture, and live synthetic-portrait run
@@ -186,12 +186,13 @@ commit without committing the face image or signed URLs.
 
 The database is the authoritative GPU-allocation boundary. It allows at most two active
 or freshly prepared dreams per journal, six new dreams per journal per UTC hour, and 12
-scene edits per journal per UTC hour. Dream creation and scene edits share a ceiling of
-100 GPU allocations across the demo per UTC day. Dream Self separately allows six photo
-preparations per journal per UTC hour and 40 across the demo per UTC day, with at most two
-pending at once. Exact operation replays return the original record without consuming
-another slot. Global counters remain durable when an anonymous user is deleted, so a new
-browser session cannot bypass either daily ceiling.
+scene edits per journal per UTC hour. Each story conservatively reserves eight Runpod job
+slots and each edit reserves one from 100 slots across the demo per UTC day. This covers
+the worst-case audio story: transcription, planning, and six images. Dream Self separately
+allows six photo preparations per journal per UTC hour and 40 across the demo per UTC day,
+with at most two pending at once. Exact operation replays return the original record
+without consuming another slot. Global counters remain durable when an anonymous user is
+deleted, so a new browser session cannot bypass either daily ceiling.
 
 After applying migrations, run the opt-in linked verifier with a service credential:
 
@@ -201,7 +202,7 @@ pnpm --dir web test:db:quotas:linked
 
 It exercises concurrent text/audio admission, scene-edit and photo ceilings, replay and
 conflict precedence, stale workflow claims, denial codes, durable counters, and fixture
-cleanup. It consumes 18 shared GPU-allocation slots and six photo-preparation slots from
+cleanup. It consumes 60 Runpod job slots and six photo-preparation slots from
 the current UTC day, but it does not call a GPU.
 
 ## Queue check

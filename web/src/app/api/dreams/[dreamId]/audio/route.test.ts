@@ -55,6 +55,20 @@ it("accepts a replay when transcription advances during its claim", async () => 
   await expect(response.json()).resolves.toEqual({ dreamId: DREAM_ID, runId: null });
 });
 
+it("explains when an expired audio replay exceeds active capacity", async () => {
+  mocks.get.mockResolvedValue({ status: "UPLOADED" });
+  mocks.start.mockRejectedValue(new DatabaseOperationError({
+    code: "P4291", message: "dream_active_limit",
+  }));
+
+  const response = await POST(uploadRequest(), routeContext());
+
+  expect(response.status).toBe(429);
+  await expect(response.json()).resolves.toEqual({
+    error: "Two dreams are already being made. Wait for one to finish.",
+  });
+});
+
 it("only starts transcription from upload states", () => {
   expect(shouldStartTranscription("UPLOADED")).toBe(true);
   expect(shouldStartTranscription("TRANSCRIBING")).toBe(true);
