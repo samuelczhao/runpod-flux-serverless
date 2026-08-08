@@ -90,7 +90,7 @@ function plannerInstructions(): string {
     "Motif labels must be simple lowercase singular concepts so recurring motifs match across dreams.",
     "Choose the fewest scenes that cover every important visual beat without filler or repetition.",
     "The has_dream_self and visual_style fields are trusted app settings outside the transcript.",
-    "When has_dream_self is true, make the dreamer visible in every scene prompt without inventing physical features.",
+    "When has_dream_self is true, call the visible protagonist only 'the dreamer' in every scene prompt, make that dreamer perform the scene action, and never introduce a generic person or figure as a substitute.",
     "Honor visual_style in the visual bible and keep that style unchanged across every scene.",
     "Make all scenes visually coherent and preserve recurring people, objects, palette, and style.",
   ].join(" ");

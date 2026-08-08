@@ -18,6 +18,7 @@ describe("Qwen dream planner", () => {
     expect(JSON.stringify(input)).toContain("/no_think");
     expect(JSON.stringify(input)).toContain('"enum":["awe","calm"');
     expect(JSON.stringify(input)).toContain("[1..6]");
+    expect(JSON.stringify(input)).toContain("call the visible protagonist only 'the dreamer'");
   });
 
   it("serializes transcript delimiters as JSON data", () => {
