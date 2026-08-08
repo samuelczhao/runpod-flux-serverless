@@ -59,13 +59,14 @@ configuration, not the web application.
 
 ## Planner endpoint settings
 
-The Qwen planner scales from zero and remains capped at one worker. Its 600-second idle
-timeout keeps the model warm across the first dream, branch, and second dream without
-paying for an always-on worker. The allowed GPU pool prioritizes CUDA 13-capable
-Blackwell cards with compatible Ada and Ampere fallbacks. CUDA 13.0 remains required
-because the pinned vLLM worker image declares CUDA 13.0.2 and a CUDA 13 minimum. This
-broadens capacity as far as the image allows while preserving the one-worker cost
-ceiling; the larger fallback cards trade a higher per-second rate for availability.
+The Qwen planner scales from zero and remains capped at one worker. Its submission idle
+timeout is five seconds for cost control; temporarily raise it to 600 seconds and
+prewarm the endpoint for the live presentation. The allowed GPU pool prioritizes CUDA
+13-capable Blackwell cards with compatible Ada and Ampere fallbacks. CUDA 13.0 remains
+required because the pinned vLLM worker image declares CUDA 13.0.2 and a CUDA 13
+minimum. This broadens capacity as far as the image allows while preserving the
+one-worker cost ceiling; the larger fallback cards trade a higher per-second rate for
+availability.
 
 ## Local run
 
@@ -137,6 +138,11 @@ The hardened end-to-end path has produced:
 - successful branch selection and preserved private PNGs;
 - warm planner execution in seconds after the initial model cold start;
 - provider-reported Kontext cost where available.
+
+A later post-idle planner check remained in worker initialization beyond ten minutes
+and was explicitly cancelled before inference. Treat this as measured cold-start
+capacity evidence, not a completed model validation; the mood-quality guard added
+afterward is covered by local contract tests and the database constraint.
 
 Exact job IDs and measured timings belong in redacted presentation evidence, not source
 code, because endpoint history and anonymous journal IDs are operational data.

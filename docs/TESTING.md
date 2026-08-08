@@ -129,6 +129,11 @@ the glass whale, compass, violet desert, and cloud staircase across all three im
 Two separate text dreams also reached `READY`; a replayed branch request reused one
 version, and the selected red-fox edit persisted without regenerating the other scenes.
 
+After the planner mood contract was tightened, a planner-only scale-from-zero check
+remained in worker initialization for ten minutes and was cancelled without inference.
+The live contract result is therefore intentionally unclaimed; 59 local tests validate
+the new enum boundary, and the remote database constraint rejects malformed mood arrays.
+
 ## Queue check
 
 With Max workers at 1, submit two async jobs back-to-back. Confirm one is processed while

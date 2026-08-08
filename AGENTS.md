@@ -28,3 +28,6 @@
 - Audio smoke tests must confirm the reviewed transcript through
   `/api/dreams/{dreamId}/transcript`; transcription intentionally stops in `PLANNING`
   so a user can correct Whisper output before image-generation spend begins.
+- Planner cold starts can exceed the ten-minute client poll window even with FlashBoot.
+  Prewarm before a live demo, keep one-worker cost bounds, and never retry while an
+  existing worker is still initializing.
