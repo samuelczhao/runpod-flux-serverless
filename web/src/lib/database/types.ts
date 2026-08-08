@@ -133,6 +133,24 @@ type JobRow = {
   updated_at: string;
 }
 
+type DreamQuotaLimitsRow = {
+  singleton: boolean;
+  max_active_per_user: number;
+  max_user_hour: number;
+  max_global_day: number;
+}
+
+type DreamUserHourlyUsageRow = {
+  user_id: string;
+  bucket_start: string;
+  used: number;
+}
+
+type DreamGlobalDailyUsageRow = {
+  bucket_date: string;
+  used: number;
+}
+
 type DreamInsert = {
   user_id: string;
   input_mode: string;
@@ -172,6 +190,9 @@ export type Database = {
       dream_motifs: Table<DreamMotifRow>;
       generation_jobs: Table<JobRow>;
       identity_references: Table<IdentityReferenceRow>;
+      dream_quota_limits: Table<DreamQuotaLimitsRow>;
+      dream_user_hourly_usage: Table<DreamUserHourlyUsageRow>;
+      dream_global_daily_usage: Table<DreamGlobalDailyUsageRow>;
     };
     Views: Record<never, never>;
     Functions: {

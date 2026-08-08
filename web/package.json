@@ -29,7 +29,8 @@
     "demo:seed": "node scripts/live-demo-smoke.ts",
     "demo:identity": "node scripts/live-identity-smoke.ts",
     "demo:voice": "node scripts/live-voice-smoke.ts",
-    "test:db:branch-recovery": "node scripts/verify-branch-recovery.ts"
+    "test:db:branch-recovery": "node scripts/verify-branch-recovery.ts",
+    "test:db:quotas": "node scripts/verify-dream-quotas.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

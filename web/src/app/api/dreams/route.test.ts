@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/dreams/route";
+import { DatabaseOperationError } from "@/lib/database/errors";
 
 const mocks = vi.hoisted(() => ({ prepare: vi.fn(), start: vi.fn(), getUser: vi.fn() }));
 const DREAM_ID = "376e377c-0d3f-4411-a257-5db73ca23648";
@@ -72,6 +73,27 @@ it("requires an authenticated journal", async () => {
   const response = await POST(createRequest());
   expect(response.status).toBe(401);
   expect(mocks.prepare).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["P4291", "Two dreams are already being made"],
+  ["P4292", "hourly demo limit"],
+  ["P4293", "today’s demo limit"],
+])("returns 429 for quota code %s without starting work", async (code, message) => {
+  mocks.prepare.mockRejectedValue(new DatabaseOperationError({ code, message: "quota" }));
+  const response = await POST(createRequest());
+  expect(response.status).toBe(429);
+  await expect(response.json()).resolves.toEqual({ error: expect.stringContaining(message) });
+  expect(mocks.start).not.toHaveBeenCalled();
+});
+
+it("keeps unknown database failures unavailable", async () => {
+  mocks.prepare.mockRejectedValue(new DatabaseOperationError({ code: "XX000", message: "database" }));
+  const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const response = await POST(createRequest());
+  expect(response.status).toBe(503);
+  expect(mocks.start).not.toHaveBeenCalled();
+  log.mockRestore();
 });
 
 function createRequest(): Request {

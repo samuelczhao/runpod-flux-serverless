@@ -8,6 +8,7 @@ import {
   DEFAULT_VISUAL_STYLE,
   visualStyleSchema,
 } from "@/lib/domain/identity";
+import { dreamQuotaResponse } from "@/app/api/dreams/quota";
 
 const requestSchema = audioUploadRequestSchema.extend({
   identityReferenceId: z.uuid().nullable().default(null),
@@ -32,6 +33,8 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ dreamId, ...upload }, { status: 201 });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) return Response.json({ error: "Unsupported audio format" }, { status: 400 });
+    const quotaResponse = dreamQuotaResponse(error);
+    if (quotaResponse) return quotaResponse;
     return Response.json({ error: "Audio capture could not be prepared" }, { status: 503 });
   }
 }
