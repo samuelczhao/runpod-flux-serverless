@@ -72,10 +72,9 @@ def _integer(value: object, field: str, minimum: int, maximum: int) -> int:
 
 
 def _seed(job_input: Mapping[str, object]) -> int:
-    value = job_input.get("seed")
-    if value is None:
+    if "seed" not in job_input:
         return secrets.randbelow(MAX_SEED + 1)
-    return _integer(value, "seed", 0, MAX_SEED)
+    return _integer(job_input["seed"], "seed", 0, MAX_SEED)
 
 
 def _dimension(job_input: Mapping[str, object], field: str, default: int) -> int:
@@ -101,4 +100,3 @@ def _guidance_scale(job_input: Mapping[str, object]) -> float:
         message = f"must be between {MIN_GUIDANCE_SCALE} and {MAX_GUIDANCE_SCALE}"
         raise InputValidationError("guidance_scale", message)
     return scale
-
