@@ -2,8 +2,8 @@
 
 This case study starts with the required custom Runpod Serverless endpoint for
 [black-forest-labs/FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev),
-then turns it into a product: describe or record a dream, receive a coherent three-scene
-visual story, revise a scene without regenerating the rest, and see recurring symbols
+then turns it into a product: describe or record a dream, receive a coherent visual
+story, revise a scene without regenerating the rest, and see recurring symbols
 connect across a private journal.
 
 Production: [dreamtrace.vercel.app](https://dreamtrace.vercel.app)
@@ -24,7 +24,7 @@ flowchart LR
     D --> F[Custom FLUX.1-dev endpoint]
     D --> G[Runpod Kontext endpoint]
     D --> K[Runpod Whisper endpoint]
-    G --> H[Three coherent scenes]
+    G --> H[One to six coherent scenes]
     H --> I[Selectable scene branches]
     C --> J[Recurring-motif constellation]
 ```
@@ -38,6 +38,8 @@ that job, and make retries idempotent.
 
 - Accepts text or microphone capture with transcript review.
 - Uses a dedicated Runpod Qwen3-4B-AWQ endpoint to produce a strict story plan.
+- Chooses one to six scenes based on the dream's important visual beats instead of
+  padding every memory to a fixed length.
 - Generates the anchor with the required custom FLUX.1-dev worker, then uses Kontext to
   preserve visual identity across scenes.
 - Lets the user branch one scene from an edit instruction and explicitly select the
@@ -158,7 +160,7 @@ pnpm lint
 pnpm build
 ```
 
-The web suite currently contains 152 GPU-free unit tests plus an opt-in linked-database
+The web suite currently contains 165 GPU-free unit tests plus an opt-in linked-database
 recovery test. The database fixture verifies idempotent audio preparation, atomic branch
 and dream recovery, duplicate text and workflow claims, audio format binding, NULL identity guards,
 completion, and cross-user RLS isolation, then deletes its anonymous users and

@@ -4,6 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { appRequest, createLiveContext, type LiveAppContext } from "./live-smoke-context.ts";
+import { MAX_STORY_SCENES, MIN_STORY_SCENES } from "../src/lib/domain/dream.ts";
 
 const POLL_INTERVAL_MS = 3_000;
 const TRANSCRIPTION_TIMEOUT_MS = 15 * 60 * 1_000;
@@ -166,7 +167,11 @@ function assertNotFailed(story: VoiceStory, phase: string): void {
 }
 
 function assertReady(story: VoiceStory): void {
-  if (story.scenes.length !== 3) throw new Error("Voice dream does not have exactly three scenes");
+  const ordinals = story.scenes.map((scene) => scene.ordinal).sort((left, right) => left - right);
+  if (ordinals.length < MIN_STORY_SCENES || ordinals.length > MAX_STORY_SCENES
+    || ordinals.some((ordinal, index) => ordinal !== index + 1)) {
+    throw new Error("Voice dream does not have one to six contiguous scenes");
+  }
   for (const scene of story.scenes) {
     const selected = scene.versions.filter((version) => version.isSelected);
     if (selected.length !== 1 || selected[0].status !== "COMPLETED" || !selected[0].imageUrl) {

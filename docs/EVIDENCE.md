@@ -1,5 +1,9 @@
 # Production acceptance evidence
 
+This is historical evidence for the fixed three-scene release. The adaptive one-to-six
+scene contract requires a fresh release and boundary acceptance before it is claimed in
+Production.
+
 Validated on August 8, 2026 UTC (August 7 PT) against
 [dreamtrace.vercel.app](https://dreamtrace.vercel.app). Operational identifiers, signed
 URLs, anonymous user IDs, and credentials are intentionally omitted.

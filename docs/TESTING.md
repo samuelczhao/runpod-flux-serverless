@@ -112,6 +112,11 @@ The invalid-width job reached `FAILED` with
 
 ## Live DreamTrace acceptance
 
+Current acceptance requires a planner-selected count from one through six, contiguous
+ordinals starting at one, and exactly one selected completed image per scene. Exercise
+both boundary counts before release. The measurements below are historical evidence
+from the earlier fixed three-scene contract.
+
 Measured on August 7, 2026 with scale-to-zero endpoints and a synthetic, clearly
 labeled 13-second voice fixture:
 

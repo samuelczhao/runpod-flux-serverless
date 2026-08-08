@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dreamStatusSchema } from "@/lib/domain/dream";
+import { dreamStatusSchema, MAX_STORY_SCENES } from "@/lib/domain/dream";
 
 export const uuidSchema = z.uuid();
 
@@ -32,7 +32,7 @@ export const processingDreamSchema = z.object({
 export const sceneSchema = z.object({
   id: uuidSchema,
   dream_id: uuidSchema,
-  ordinal: z.number().int().min(1).max(3),
+  ordinal: z.number().int().min(1).max(MAX_STORY_SCENES),
   caption: z.string(),
   prompt: z.string(),
 }).strict();

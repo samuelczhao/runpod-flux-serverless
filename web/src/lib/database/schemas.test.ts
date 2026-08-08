@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { processingDreamSchema } from "@/lib/database/schemas";
+import { processingDreamSchema, sceneSchema } from "@/lib/database/schemas";
 
 it("accepts PostgreSQL timestamps with a UTC offset", () => {
   const row = {
@@ -18,4 +18,17 @@ it("accepts PostgreSQL timestamps with a UTC offset", () => {
   };
 
   expect(processingDreamSchema.parse(row).audio_upload_expires_at).toBe(row.audio_upload_expires_at);
+});
+
+it("accepts scene ordinal six and rejects ordinal seven", () => {
+  const row = {
+    id: "376e377c-0d3f-4411-a257-5db73ca23648",
+    dream_id: "40911ce1-a4a6-47c4-8409-b782e80a32c4",
+    ordinal: 6,
+    caption: "The final threshold",
+    prompt: "A traveler steps through a silver doorway.",
+  };
+
+  expect(sceneSchema.safeParse(row).success).toBe(true);
+  expect(sceneSchema.safeParse({ ...row, ordinal: 7 }).success).toBe(false);
 });

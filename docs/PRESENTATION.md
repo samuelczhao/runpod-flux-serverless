@@ -9,7 +9,7 @@
   request evidence in separate tabs.
 - Confirm a fresh text dream, a branch, and journal navigation in the exact browser
   session used for the presentation.
-- Keep the last successful three-scene story and branch available as fallback evidence.
+- Keep the last successful adaptive story and branch available as fallback evidence.
 - Verify no terminal or browser view exposes API or Hugging Face tokens.
 
 ## Eight-minute core flow
@@ -22,10 +22,10 @@
    generated 1024×1024 image before introducing the product extension.
 4. **User flow — 60 seconds.** Enter a short dream, start generation, and switch to an
    already-completed story while the live job runs.
-5. **Coherence — 45 seconds.** Show the three scenes and point out the shared palette,
+5. **Coherence — 45 seconds.** Show the generated scenes and point out the shared palette,
    character, object, and setting carried from the anchor through Kontext.
 6. **Interactive edit — 45 seconds.** Show the red-fox branch comparison and select the
-   preferred scene without regenerating the other two.
+   preferred scene without regenerating the rest of the story.
 7. **Memory over time — 30 seconds.** Open the constellation and show recurring motifs
    connecting two dreams.
 8. **Architecture — 60 seconds.** Use the README diagram: browser, durable workflow,

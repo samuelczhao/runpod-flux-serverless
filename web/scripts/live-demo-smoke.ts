@@ -1,6 +1,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { appRequest, createLiveContext, type LiveAppContext } from "./live-smoke-context.ts";
+import { MAX_STORY_SCENES, MIN_STORY_SCENES } from "../src/lib/domain/dream.ts";
 
 const POLL_INTERVAL_MS = 3_000;
 const DREAM_TIMEOUT_MS = 45 * 60 * 1_000;
@@ -37,7 +38,7 @@ async function main(): Promise<void> {
   });
   const first = await createDream(context, FIRST_DREAM);
   const firstStory = await waitForDream(context, first.dreamId, "dream_one");
-  const branchId = await branchSecondScene(context, firstStory);
+  const branchId = await branchStoryScene(context, firstStory);
   const second = await createDream(context, SECOND_DREAM);
   await waitForDream(context, second.dreamId, "dream_two");
   console.log(`demo_ready dream_one=${first.dreamId} dream_two=${second.dreamId} branch=${branchId}`);
@@ -69,9 +70,9 @@ async function waitForDream(context: LiveAppContext, dreamId: string, label: str
   throw new Error(`${label} timed out`);
 }
 
-async function branchSecondScene(context: LiveAppContext, story: Story): Promise<string> {
-  const scene = story.scenes.find((candidate) => candidate.ordinal === 2);
-  if (!scene?.versionId) throw new Error("Second scene has no selected version");
+async function branchStoryScene(context: LiveAppContext, story: Story): Promise<string> {
+  const scene = story.scenes.find((candidate) => candidate.ordinal === 2) ?? story.scenes[0];
+  if (!scene?.versionId) throw new Error("Story has no selected version to branch");
   const request = branchRequest(story.id, scene.versionId);
   const branch = await startBranchTwice(context, scene.id, request);
   console.log(`branch_started id=${branch.versionId} run=${branch.runId}`);
@@ -134,8 +135,11 @@ function branchRequest(dreamId: string, parentVersionId: string): Readonly<Recor
 }
 
 function assertReadyStory(story: Story): Story {
-  const ordinals = story.scenes.map((scene) => scene.ordinal).sort();
-  if (ordinals.join(",") !== "1,2,3") throw new Error("READY dream does not have exactly three scenes");
+  const ordinals = story.scenes.map((scene) => scene.ordinal).sort((left, right) => left - right);
+  if (ordinals.length < MIN_STORY_SCENES || ordinals.length > MAX_STORY_SCENES
+    || ordinals.some((ordinal, index) => ordinal !== index + 1)) {
+    throw new Error("READY dream does not have one to six contiguous scenes");
+  }
   for (const scene of story.scenes) {
     const selected = scene.versions.filter((version) => version.isSelected);
     if (selected.length !== 1 || selected[0].status !== "COMPLETED" || !selected[0].imageUrl) {

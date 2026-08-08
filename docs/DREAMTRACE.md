@@ -3,7 +3,7 @@
 ## Outcome
 
 DreamTrace turns a remembered dream into a private, coherent visual story. A user can
-type or record the memory, review the transcript, generate three connected scenes,
+type or record the memory, review the transcript, generate one to six connected scenes,
 revise one scene, select the preferred version, and revisit recurring motifs across
 completed dreams.
 
@@ -19,7 +19,7 @@ call.
 | --- | --- |
 | Next.js app | Capture, transcript review, story UI, scene editing, journal |
 | Durable workflows | Submit once, poll, persist, retry safely, cancel on local timeout |
-| Qwen3-4B-AWQ endpoint | Strict JSON story plan, moods, motifs, three prompts |
+| Qwen3-4B-AWQ endpoint | Strict JSON story plan, moods, motifs, and one to six prompts |
 | Custom FLUX.1-dev endpoint | Anchor image from the accepted gated model |
 | FLUX.1 Kontext endpoint | Coherent scenes and instruction-based branches |
 | Whisper endpoint | Voice transcription for the default capture mode |
@@ -127,10 +127,10 @@ DREAMTRACE_DB_INTEGRATION=1 pnpm --dir web test:db:branch-recovery
 ## Paid end-to-end demo seed
 
 The opt-in seeder creates persistent demo journal rows under its own anonymous session.
-It performs two planner calls and seven paid image jobs: three images per dream plus one
-scene branch. It does not delete successful demo rows. It also replays branch creation
-and selection to verify idempotency, and rejects `READY` unless each dream has exactly
-three selected completed images.
+It performs two planner calls, one image job per planned scene, and one scene branch.
+It does not delete successful demo rows. It also replays branch creation and selection
+to verify idempotency, and rejects `READY` unless each dream has one to six contiguous
+scenes with exactly one selected completed image apiece.
 
 With the app already running:
 
@@ -145,7 +145,7 @@ Ordinary unit, build, and database-recovery tests do not call a GPU.
 ## Paid voice acceptance
 
 The opt-in voice client exercises signed upload, upload-completion replay, Runpod Whisper,
-transcript review, transcript-confirmation replay, and the full three-image workflow. The
+transcript review, transcript-confirmation replay, and the adaptive image workflow. The
 audio file may be OGG, MP4, or WebM and must be at most 10 MB.
 
 ```bash
@@ -158,6 +158,10 @@ The successful journal remains under the smoke client's anonymous session, and s
 audio remains private until its durable cleanup deadline.
 
 ## Live evidence
+
+The following evidence predates adaptive scene counts and records the earlier fixed
+three-scene release. New acceptance should additionally cover the one- and six-scene
+boundaries.
 
 The hardened end-to-end path has produced:
 

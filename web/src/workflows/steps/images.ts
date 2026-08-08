@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { getRunpodEnv } from "@/lib/config/env";
 import { getProcessingDream } from "@/lib/database/dreams";
 import { hashJson } from "@/lib/database/hash";
@@ -13,6 +14,7 @@ import { buildAnchorInput } from "@/lib/runpod/anchor";
 import { buildKontextInput, buildKontextRequestIdentity } from "@/lib/runpod/kontext";
 import { submitQueueJob } from "@/lib/runpod/queue";
 import { recordSubmissionFailure } from "@/lib/runpod/submission";
+import { MAX_STORY_SCENES } from "@/lib/domain/dream";
 
 const ANCHOR_MODEL = "black-forest-labs/FLUX.1-dev";
 const KONTEXT_MODEL = "black-forest-labs/FLUX.1-Kontext-dev";
@@ -32,11 +34,12 @@ export async function submitAnchorStep(dreamId: string): Promise<string> {
   return submitClaimedJob(claim, endpointId, input);
 }
 
-export async function submitSceneStep(dreamId: string, ordinal: 2 | 3): Promise<string> {
+export async function submitSceneStep(dreamId: string, ordinal: number): Promise<string> {
   "use step";
+  const sceneOrdinal = z.number().int().min(2).max(MAX_STORY_SCENES).parse(ordinal);
   const dream = await getProcessingDream(dreamId);
   if (dream.status !== "GENERATING_SCENES") throw new Error("Dream is not ready for scene generation");
-  const [anchorScene, scene] = await Promise.all([getScene(dreamId, 1), getScene(dreamId, ordinal)]);
+  const [anchorScene, scene] = await Promise.all([getScene(dreamId, 1), getScene(dreamId, sceneOrdinal)]);
   const [anchor, version] = await Promise.all([
     getSelectedVersion(anchorScene.id), ensureInitialVersion(scene, KONTEXT_MODEL),
   ]);

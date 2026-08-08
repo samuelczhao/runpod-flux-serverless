@@ -21,6 +21,19 @@ Tradeoff: the application has more infrastructure than the minimum submission. T
 worker remains runnable and documented on its own, and each added provider boundary has
 strict validation, persisted identity, and an explicit one-worker concurrency ceiling.
 
+### Adaptive scene count with one visual anchor
+
+The planner chooses one to six scenes and is instructed to use the fewest scenes that
+cover every important visual beat. The plan transaction creates contiguous ordinals,
+and the durable workflow validates and records that ordered list before iterating. Scene one
+always uses the required custom FLUX worker; later scenes use the selected scene-one
+image as the stable Kontext reference.
+
+Tradeoff: longer dreams can submit up to six sequential image jobs, increasing latency
+and spend. The hard upper bound, sequential execution, persisted operation keys, and
+dynamic finalization keep that work predictable and replay-safe, while short memories
+avoid padded or repetitive images.
+
 ### Durable paid-work accounting
 
 The application claims a generation operation in Postgres before calling Runpod. The

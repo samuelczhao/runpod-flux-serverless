@@ -1,8 +1,14 @@
 import { z } from "zod";
-import { dreamPlanSchema, MOOD_LABELS, type DreamPlan } from "@/lib/domain/dream";
+import {
+  dreamPlanSchema,
+  MAX_STORY_SCENES,
+  MIN_STORY_SCENES,
+  MOOD_LABELS,
+  type DreamPlan,
+} from "@/lib/domain/dream";
 
 const MAX_TRANSCRIPT_LENGTH = 12_000;
-const MAX_OUTPUT_TOKENS = 1_600;
+const MAX_OUTPUT_TOKENS = 3_200;
 const PLAN_SEED = 7;
 const PLAN_MODEL = "Qwen/Qwen3-4B-AWQ";
 
@@ -52,10 +58,12 @@ function plannerInstructions(): string {
     "Return only one valid JSON object with no prose or markdown.",
     'Use exactly: {"title":string,"summary":string,"mood":["wonder"],',
     '"motifs":{"label":string,"kind":"person|place|object|emotion|theme"}[1..8],',
-    '"visual_bible":string,"scenes":{"caption":string,"prompt":string}[3]}.',
+    `"visual_bible":string,"scenes":{"caption":string,"prompt":string}`
+      + `[${MIN_STORY_SCENES}..${MAX_STORY_SCENES}]}.`,
     `Choose one to three mood labels only from: ${MOOD_LABELS.join(", ")}.`,
     "Motif labels must be simple lowercase singular concepts so recurring motifs match across dreams.",
-    "Make the three scenes visually coherent and preserve recurring people, objects, palette, and style.",
+    "Choose the fewest scenes that cover every important visual beat without filler or repetition.",
+    "Make all scenes visually coherent and preserve recurring people, objects, palette, and style.",
   ].join(" ");
 }
 
