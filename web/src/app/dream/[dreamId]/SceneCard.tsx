@@ -85,7 +85,8 @@ function BranchState({ branch, scene, onRetry, onStoryChanged, retryRef }: {
   const selected = scene.versions.find((version) => version.isSelected);
   const alternative = scene.versions.find((version) => version.id !== selected?.id && version.imageUrl);
   if (alternative && selected?.imageUrl) {
-    return <><p className="sr-only" aria-live="polite" role="status">New version ready.</p>
+    return <><p className="sr-only" aria-live="polite" role="status">
+      {alternativeLabel(alternative)} ready.</p>
       <BranchComparison sceneId={scene.id} current={selected} alternative={alternative}
         onStoryChanged={onStoryChanged} /></>;
   }
@@ -112,16 +113,25 @@ function BranchComparison({ sceneId, current, alternative, onStoryChanged }: {
 }) {
   const [selecting, setSelecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const label = alternativeLabel(alternative);
+  const description = alternative.parentVersionId
+    ? alternative.editInstruction ?? "A different take on this moment"
+    : "The first version of this moment";
   const choose = () => void chooseVersion(
     sceneId, current.id, alternative.id, setSelecting, setError, onStoryChanged,
   );
   return <div className="branch-comparison">
-    <p><strong>New version:</strong> {alternative.editInstruction ?? "A different take on this moment"}</p>
-    <Image alt="New version of this dream moment" height={1024} src={alternative.imageUrl!} unoptimized width={1024} />
+    <p><strong>{label}:</strong> {description}</p>
+    <Image alt={`${label} of this dream moment`} height={1024} src={alternative.imageUrl!}
+      unoptimized width={1024} />
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <button className="button ghost" disabled={selecting} onClick={choose} type="button">
-      {selecting ? "Saving…" : "Use this version"}</button>
+      {selecting ? "Saving…" : `Use ${label.toLowerCase()}`}</button>
   </div>;
+}
+
+function alternativeLabel(version: StoryVersion): "New version" | "Original version" {
+  return version.parentVersionId ? "New version" : "Original version";
 }
 
 async function submitBranch(

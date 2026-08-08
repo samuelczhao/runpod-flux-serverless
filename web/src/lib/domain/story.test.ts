@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   dreamStorySchema,
+  mergeStoryPollResult,
+  planDreamPoll,
   preserveStoryImageUrls,
-  shouldPollDream,
   type DreamStory,
   type StoryVersion,
 } from "@/lib/domain/story";
@@ -40,25 +41,35 @@ describe("dream story polling", () => {
 
   it.each(["DRAFT", "PLANNING", "GENERATING_ANCHOR", "GENERATING_SCENES"] as const)(
     "continues while %s can still advance",
-    (status) => expect(shouldPollDream(story(status))).toBe(true),
+    (status) => expect(planDreamPoll(story(status))).toEqual({
+      delayMs: 3_000, preserveImageUrls: true,
+    }),
   );
 
   it("stops after a failed dream", () => {
-    expect(shouldPollDream(story("FAILED"))).toBe(false);
+    expect(planDreamPoll(story("FAILED"))).toBeNull();
   });
 
   it.each(["PENDING", "SUBMITTING", "QUEUED", "RUNNING"] as const)(
     "keeps a READY dream fresh while a branch is %s",
-    (status) => expect(shouldPollDream(story("READY", [version(status)]))).toBe(true),
+    (status) => expect(planDreamPoll(story("READY", [version(status)])))
+      .toEqual({ delayMs: 3_000, preserveImageUrls: true }),
   );
 
   it.each(["COMPLETED", "FAILED", "CANCELLED", "SUBMIT_UNKNOWN"] as const)(
     "stops a READY dream after its branch is %s",
-    (status) => expect(shouldPollDream(story("READY", [version(status)]))).toBe(false),
+    (status) => expect(planDreamPoll(story("READY", [version(status)]))).toBeNull(),
   );
 
   it("stops a READY dream without a branch", () => {
-    expect(shouldPollDream(story("READY"))).toBe(false);
+    expect(planDreamPoll(story("READY"))).toBeNull();
+  });
+
+  it("renews READY image URLs ten minutes before expiration", () => {
+    const ready = story("READY", [{ ...version("COMPLETED"),
+      isSelected: true, imageUrl: "https://old.example/a.png" }]);
+    ready.scenes[0]!.imageUrl = "https://old.example/a.png";
+    expect(planDreamPoll(ready)).toEqual({ delayMs: 3_000_000, preserveImageUrls: false });
   });
 
   it("preserves a signed URL while a version identity is unchanged", () => {
@@ -66,5 +77,12 @@ describe("dream story polling", () => {
     const next = story("READY", [{ ...version("COMPLETED"), imageUrl: "https://new.example/a.png" }]);
     expect(preserveStoryImageUrls(current, next).scenes[0]?.versions[0]?.imageUrl)
       .toBe("https://old.example/a.png");
+  });
+
+  it("replaces a signed URL during a renewal poll", () => {
+    const current = story("READY", [{ ...version("COMPLETED"), imageUrl: "https://old.example/a.png" }]);
+    const next = story("READY", [{ ...version("COMPLETED"), imageUrl: "https://new.example/a.png" }]);
+    expect(mergeStoryPollResult(current, next, false).scenes[0]?.versions[0]?.imageUrl)
+      .toBe("https://new.example/a.png");
   });
 });

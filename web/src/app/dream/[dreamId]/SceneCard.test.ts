@@ -36,6 +36,25 @@ describe("editorial story sequence", () => {
     expect(html).toContain("couldn’t confirm that the new version started");
     expect(html).not.toContain("Still working");
   });
+
+  it("labels an unselected generated branch as the new version", () => {
+    const html = renderToStaticMarkup(createElement(SceneCard, {
+      dreamId: "dream-id", onStoryChanged: vi.fn(),
+      scene: selectableScene(false), totalMoments: 1,
+    }));
+    expect(html).toContain("New version:");
+    expect(html).toContain("Use new version");
+  });
+
+  it("labels an unselected root image as the original version", () => {
+    const html = renderToStaticMarkup(createElement(SceneCard, {
+      dreamId: "dream-id", onStoryChanged: vi.fn(),
+      scene: selectableScene(true), totalMoments: 1,
+    }));
+    expect(html).toContain("Original version:");
+    expect(html).toContain("Use original version");
+    expect(html).not.toContain("New version:");
+  });
 });
 
 function scene(ordinal: number): StoryScene {
@@ -54,4 +73,17 @@ function sceneWithBranch(status: StoryScene["versions"][number]["status"]): Stor
     id: "branch-1", parentVersionId: "version-1", editInstruction: "More moonlight",
     status, isSelected: false, imageUrl: null,
   }] };
+}
+
+function selectableScene(branchSelected: boolean): StoryScene {
+  const original = {
+    id: "version-1", parentVersionId: null, editInstruction: null,
+    status: "COMPLETED" as const, isSelected: !branchSelected, imageUrl: "https://example.com/original.png",
+  };
+  const branch = {
+    id: "branch-1", parentVersionId: "version-1", editInstruction: "More moonlight",
+    status: "COMPLETED" as const, isSelected: branchSelected, imageUrl: "https://example.com/branch.png",
+  };
+  const selected = branchSelected ? branch : original;
+  return { ...scene(1), versionId: selected.id, imageUrl: selected.imageUrl, versions: [original, branch] };
 }

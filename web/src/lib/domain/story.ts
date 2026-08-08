@@ -41,10 +41,26 @@ export type StoryVersion = z.infer<typeof storyVersionSchema>;
 const ACTIVE_VERSION_STATUSES = new Set<StoryVersion["status"]>([
   "PENDING", "SUBMITTING", "QUEUED", "RUNNING",
 ]);
+export const STORY_IMAGE_URL_TTL_SECONDS = 3_600;
+const ACTIVE_STORY_POLL_INTERVAL_MS = 3_000;
+const STORY_IMAGE_URL_REFRESH_BUFFER_SECONDS = 600;
 
-export function shouldPollDream(story: DreamStory): boolean {
-  if (story.status === "FAILED") return false;
-  if (story.status !== "READY") return true;
+export interface DreamPollPlan {
+  readonly delayMs: number;
+  readonly preserveImageUrls: boolean;
+}
+
+export function planDreamPoll(story: DreamStory): DreamPollPlan | null {
+  if (story.status === "FAILED") return null;
+  if (story.status !== "READY" || hasActiveVersion(story)) {
+    return { delayMs: ACTIVE_STORY_POLL_INTERVAL_MS, preserveImageUrls: true };
+  }
+  if (!story.scenes.some((scene) => scene.imageUrl)) return null;
+  const refreshSeconds = STORY_IMAGE_URL_TTL_SECONDS - STORY_IMAGE_URL_REFRESH_BUFFER_SECONDS;
+  return { delayMs: refreshSeconds * 1_000, preserveImageUrls: false };
+}
+
+function hasActiveVersion(story: DreamStory): boolean {
   return story.scenes.some((scene) => scene.versions.some(
     (version) => ACTIVE_VERSION_STATUSES.has(version.status),
   ));
@@ -67,4 +83,12 @@ export function preserveStoryImageUrls(
     return { ...scene, versions, imageUrl: selected?.imageUrl ?? scene.imageUrl };
   });
   return { ...next, scenes };
+}
+
+export function mergeStoryPollResult(
+  current: DreamStory | null,
+  next: DreamStory,
+  preserveImageUrls: boolean,
+): DreamStory {
+  return preserveImageUrls ? preserveStoryImageUrls(current, next) : next;
 }
