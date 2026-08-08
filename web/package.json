@@ -17,7 +17,9 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint . --max-warnings=0"
+    "lint": "eslint . --max-warnings=0",
+    "demo:seed": "node scripts/live-demo-smoke.ts",
+    "test:db:branch-recovery": "node scripts/verify-branch-recovery.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",
