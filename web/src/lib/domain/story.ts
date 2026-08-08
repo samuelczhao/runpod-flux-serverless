@@ -49,3 +49,22 @@ export function shouldPollDream(story: DreamStory): boolean {
     (version) => ACTIVE_VERSION_STATUSES.has(version.status),
   ));
 }
+
+export function preserveStoryImageUrls(
+  current: DreamStory | null,
+  next: DreamStory,
+): DreamStory {
+  if (!current || current.id !== next.id) return next;
+  const urls = new Map(current.scenes.flatMap((scene) => scene.versions
+    .filter((version) => version.imageUrl)
+    .map((version) => [version.id, version.imageUrl] as const)));
+  const scenes = next.scenes.map((scene) => {
+    const versions = scene.versions.map((version) => ({
+      ...version,
+      imageUrl: urls.get(version.id) ?? version.imageUrl,
+    }));
+    const selected = versions.find((version) => version.id === scene.versionId);
+    return { ...scene, versions, imageUrl: selected?.imageUrl ?? scene.imageUrl };
+  });
+  return { ...next, scenes };
+}

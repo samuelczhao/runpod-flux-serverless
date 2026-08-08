@@ -1,14 +1,14 @@
 # Production acceptance evidence
 
-Validated on August 8, 2026 against
+Validated on August 8, 2026 UTC (August 7 PT) against
 [dreamtrace.vercel.app](https://dreamtrace.vercel.app). Operational identifiers, signed
 URLs, anonymous user IDs, and credentials are intentionally omitted.
 
 ## Release gates
 
-- GitHub CI passed Python typecheck, 53 tests, Ruff, web typecheck, 127 tests, ESLint,
+- GitHub CI passed Python typecheck, 53 tests, Ruff, web typecheck, 152 tests, ESLint,
   Next.js Production build, and a clean Docker build of the custom Runpod worker.
-- Supabase migrations 001 through 022 match the linked project; remote schema lint has
+- Supabase migrations 001 through 023 match the linked project; remote schema lint has
   no errors, and the disposable database recovery fixture passed.
 - Public `/`, `/capture`, and `/journal` routes returned HTTP 200 without Vercel SSO.
 - Vercel registered `/api/internal/audio-cleanup` at `17 4 * * *`; a manual authenticated

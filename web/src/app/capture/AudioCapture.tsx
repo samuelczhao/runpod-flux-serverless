@@ -19,7 +19,7 @@ export function AudioCapture({
 }): ReactElement {
   const recorder = useDreamRecorder();
   useEffect(() => {
-    onBusyChange(recorder.phase === "uploading");
+    onBusyChange(recorder.phase !== "ready");
     return () => onBusyChange(false);
   }, [onBusyChange, recorder.phase]);
   const submit = () => void uploadDreamRecording(recorder, onComplete);

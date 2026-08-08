@@ -131,11 +131,12 @@ version, and the selected red-fox edit persisted without regenerating the other 
 
 After the planner mood contract was tightened, a planner-only scale-from-zero check
 remained in worker initialization for ten minutes and was cancelled without inference.
-The live contract result is therefore intentionally unclaimed; 59 local tests validate
-the new enum boundary, and the remote database constraint rejects malformed mood arrays.
+The live contract result is therefore intentionally unclaimed; the GPU-free web suite
+validates the planner boundary, and the remote database constraint rejects malformed mood arrays.
 
 ## Queue check
 
 With Max workers at 1, submit two async jobs back-to-back. Confirm one is processed while
 the other remains queued, both eventually complete, and no second worker is launched.
-This demonstrates the cost cap and expected concurrency behavior.
+This demonstrates the concurrency ceiling and expected queue behavior. It does not cap
+cumulative spend; active-worker settings and account budgets must be managed separately.
