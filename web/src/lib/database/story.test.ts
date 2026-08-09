@@ -30,6 +30,7 @@ describe("readDreamStory", () => {
       "https://images.example/first.png",
       "https://images.example/second.png",
     ]);
+    expect(story?.imageUrlsIssuedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });
 

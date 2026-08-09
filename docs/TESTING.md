@@ -194,7 +194,13 @@ with at most two pending at once. Exact operation replays return the original re
 without consuming another slot. Global counters remain durable when an anonymous user is
 deleted, so a new browser session cannot bypass either daily ceiling.
 
-After applying migrations, run the opt-in linked verifier with a service credential:
+After applying migrations, run the read-only linked verifier against Production:
+
+```bash
+pnpm --dir web test:db:admission-config:linked
+```
+
+Run the destructive quota verifier only against an isolated Supabase test project:
 
 ```bash
 pnpm --dir web test:db:quotas:linked

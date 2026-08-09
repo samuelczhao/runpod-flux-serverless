@@ -40,7 +40,8 @@ export async function readDreamStory(
     id: dream.id, status: dream.status, title: dream.title, summary: dream.summary,
     inputMode: dream.input_mode, transcript: dream.transcript,
     awaitingTranscriptReview: needsTranscriptReview(dream),
-    mood: dream.mood, failedStage: dream.failed_stage, errorCode: dream.error_code, scenes: storyScenes,
+    mood: dream.mood, failedStage: dream.failed_stage, errorCode: dream.error_code,
+    imageUrlsIssuedAt: new Date().toISOString(), scenes: storyScenes,
   });
 }
 

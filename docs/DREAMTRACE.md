@@ -137,18 +137,26 @@ pnpm --dir web build
 
 The linked-database test creates disposable anonymous users and tiny artifacts, exercises
 atomic claim/run recovery, verifies workflow exclusivity, stale-audio expiry, one-branch
-enforcement, and foreign-user isolation, then removes its fixtures:
+enforcement, and foreign-user isolation, then removes its fixtures. Run it only against
+an isolated Supabase test project:
 
 ```bash
 pnpm --dir web test:db:branch-recovery:linked
 ```
 
-The separate quota fixture verifies concurrent mixed text/audio admission, idempotent
+The separate quota fixture also requires an isolated test project. It verifies concurrent
+mixed text/audio admission, idempotent
 replay without double charging, stale-workflow protection, active and hourly ceilings,
 and durable usage counters:
 
 ```bash
 pnpm --dir web test:db:quotas:linked
+```
+
+For the public project, use the read-only configuration verifier:
+
+```bash
+pnpm --dir web test:db:admission-config:linked
 ```
 
 ## Paid end-to-end demo seed

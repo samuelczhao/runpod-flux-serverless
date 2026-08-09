@@ -334,6 +334,14 @@ export type Database = {
         Args: { p_reference_id: string; p_user_id: string };
         Returns: { source_path: string | null; reference_path: string | null }[];
       };
+      begin_identity_cleanup: {
+        Args: {
+          p_reference_id: string;
+          p_user_id: string;
+          p_cleanup_kind: "source" | "reference" | "tombstone";
+        };
+        Returns: { source_path: string | null; reference_path: string | null }[];
+      };
       complete_identity_deletion: VoidFunction<{
         p_reference_id: string;
         p_user_id: string;

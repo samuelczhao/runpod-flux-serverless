@@ -31,6 +31,7 @@ export const dreamStorySchema = z.object({
   mood: z.array(z.string()),
   failedStage: z.string().nullable(),
   errorCode: z.string().nullable(),
+  imageUrlsIssuedAt: z.iso.datetime({ offset: true }),
   scenes: z.array(storySceneSchema).max(MAX_STORY_SCENES),
 }).strict();
 
@@ -44,20 +45,27 @@ const ACTIVE_VERSION_STATUSES = new Set<StoryVersion["status"]>([
 export const STORY_IMAGE_URL_TTL_SECONDS = 3_600;
 const ACTIVE_STORY_POLL_INTERVAL_MS = 3_000;
 const STORY_IMAGE_URL_REFRESH_BUFFER_SECONDS = 600;
+const STORY_IMAGE_URL_REFRESH_AGE_MS = (
+  STORY_IMAGE_URL_TTL_SECONDS - STORY_IMAGE_URL_REFRESH_BUFFER_SECONDS
+) * 1_000;
 
 export interface DreamPollPlan {
   readonly delayMs: number;
   readonly preserveImageUrls: boolean;
 }
 
-export function planDreamPoll(story: DreamStory): DreamPollPlan | null {
+export function planDreamPoll(
+  story: DreamStory,
+  nowMs: number = Date.now(),
+): DreamPollPlan | null {
   if (story.status === "FAILED") return null;
   if (story.status !== "READY" || hasActiveVersion(story)) {
     return { delayMs: ACTIVE_STORY_POLL_INTERVAL_MS, preserveImageUrls: true };
   }
   if (!story.scenes.some((scene) => scene.imageUrl)) return null;
-  const refreshSeconds = STORY_IMAGE_URL_TTL_SECONDS - STORY_IMAGE_URL_REFRESH_BUFFER_SECONDS;
-  return { delayMs: refreshSeconds * 1_000, preserveImageUrls: false };
+  const issuedAtMs = Date.parse(story.imageUrlsIssuedAt);
+  const delayMs = Math.max(0, issuedAtMs + STORY_IMAGE_URL_REFRESH_AGE_MS - nowMs);
+  return { delayMs, preserveImageUrls: false };
 }
 
 function hasActiveVersion(story: DreamStory): boolean {
@@ -82,16 +90,24 @@ export function preserveStoryImageUrls(
     const selected = versions.find((version) => version.id === scene.versionId);
     return { ...scene, versions, imageUrl: selected?.imageUrl ?? scene.imageUrl };
   });
-  return { ...next, scenes };
+  const imageUrlsIssuedAt = urls.size > 0 ? current.imageUrlsIssuedAt : next.imageUrlsIssuedAt;
+  return { ...next, imageUrlsIssuedAt, scenes };
 }
 
 export function mergeStoryPollResult(
   current: DreamStory | null,
   next: DreamStory,
   preserveImageUrls: boolean,
+  nowMs: number = Date.now(),
 ): DreamStory {
-  if (!preserveImageUrls || crossedImageRenewalBoundary(current, next)) return next;
+  if (!preserveImageUrls || crossedImageRenewalBoundary(current, next)
+    || imageUrlsNeedRenewal(current, nowMs)) return next;
   return preserveStoryImageUrls(current, next);
+}
+
+function imageUrlsNeedRenewal(story: DreamStory | null, nowMs: number): boolean {
+  if (!story || !story.scenes.some((scene) => scene.imageUrl)) return false;
+  return Date.parse(story.imageUrlsIssuedAt) + STORY_IMAGE_URL_REFRESH_AGE_MS <= nowMs;
 }
 
 function crossedImageRenewalBoundary(current: DreamStory | null, next: DreamStory): boolean {

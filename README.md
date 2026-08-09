@@ -166,12 +166,18 @@ pnpm lint
 pnpm build
 ```
 
-The web suite currently contains 237 GPU-free unit tests plus opt-in linked-database
+The web suite contains GPU-free unit tests plus opt-in linked-database
 recovery and quota tests. The fixtures verify idempotent audio preparation, atomic branch
 and dream recovery, terminal branch retry, duplicate text and workflow claims, audio
 format binding, Dream Self lifecycle, NULL identity guards, completion, cross-user RLS
-isolation, concurrent admission ceilings, and replay without double charging. They delete
-their anonymous users and one-pixel artifacts after each run.
+isolation, concurrent admission ceilings, and replay without double charging. The full
+fixtures are intended for a disposable Supabase test project because together they reserve
+more than one public-demo day of capacity. The read-only admission verifier is safe for
+Production:
+
+```bash
+pnpm --dir web test:db:admission-config:linked
+```
 
 ## Deploy and invoke
 

@@ -114,12 +114,16 @@ it("rejects a conflicting normalized object instead of overwriting it", async ()
   })).rejects.toThrow("already exists");
 });
 
-it("rechecks the deterministic path after a deleted-reference race", async () => {
+it("claims a due tombstone before deleting its deterministic path", async () => {
   mocks.rpc
     .mockResolvedValueOnce({ data: [{
       reference_id: IDENTITY_ID,
       user_id: USER_ID,
       cleanup_kind: "tombstone",
+    }], error: null })
+    .mockResolvedValueOnce({ data: [{
+      source_path: null,
+      reference_path: `${USER_ID}/identity/${IDENTITY_ID}/reference.png`,
     }], error: null })
     .mockResolvedValueOnce({ data: null, error: null })
     .mockResolvedValueOnce({
@@ -133,10 +137,34 @@ it("rechecks the deterministic path after a deleted-reference race", async () =>
   expect(mocks.remove).toHaveBeenCalledWith([
     `${USER_ID}/identity/${IDENTITY_ID}/reference.png`,
   ]);
-  expect(mocks.rpc).toHaveBeenNthCalledWith(2, "complete_identity_tombstone_cleanup", {
+  expect(mocks.rpc).toHaveBeenNthCalledWith(2, "begin_identity_cleanup", {
+    p_reference_id: IDENTITY_ID,
+    p_user_id: USER_ID,
+    p_cleanup_kind: "tombstone",
+  });
+  expect(mocks.rpc).toHaveBeenNthCalledWith(3, "complete_identity_tombstone_cleanup", {
     p_reference_id: IDENTITY_ID,
     p_user_id: USER_ID,
   });
+});
+
+it("skips a stale cleanup candidate when its atomic claim is rejected", async () => {
+  mocks.rpc
+    .mockResolvedValueOnce({ data: [{
+      reference_id: IDENTITY_ID,
+      user_id: USER_ID,
+      cleanup_kind: "reference",
+    }], error: null })
+    .mockResolvedValueOnce({ data: [], error: null })
+    .mockResolvedValueOnce({
+      data: [{ due_count: 0, oldest_due_at: null }], error: null,
+    });
+
+  await expect(cleanupIdentityCandidates(50)).resolves.toEqual({
+    inspected: 1, failed: 0, remaining: 0, oldestDueAt: null,
+  });
+  expect(mocks.remove).not.toHaveBeenCalled();
+  expect(mocks.rpc).not.toHaveBeenCalledWith("complete_identity_deletion", expect.anything());
 });
 
 function prepared(status: "PENDING" | "READY") {

@@ -322,21 +322,37 @@ async function cleanupIdentityBatches(
 async function cleanupIdentityCandidate(
   candidate: z.infer<typeof cleanupCandidateSchema>,
 ): Promise<void> {
+  const paths = await beginIdentityCleanup(candidate);
+  if (!paths) return;
+  await deleteIdentityObjects(paths);
+  await completeClaimedIdentityCleanup(candidate, paths);
+}
+
+async function beginIdentityCleanup(
+  candidate: z.infer<typeof cleanupCandidateSchema>,
+): Promise<readonly string[] | null> {
+  const result = await createSupabaseAdminClient().rpc("begin_identity_cleanup", {
+    p_reference_id: candidate.reference_id,
+    p_user_id: candidate.user_id,
+    p_cleanup_kind: candidate.cleanup_kind,
+  });
+  throwIfDatabaseError(result.error);
+  const row = parseDatabaseRows(deletionSchema, result.data)[0];
+  if (!row) return null;
+  return [...new Set([row.source_path, row.reference_path].filter(isString))];
+}
+
+async function completeClaimedIdentityCleanup(
+  candidate: z.infer<typeof cleanupCandidateSchema>,
+  paths: readonly string[],
+): Promise<void> {
   if (candidate.cleanup_kind === "tombstone") {
-    await deleteIdentityObjects([identityPath(candidate.user_id, candidate.reference_id)]);
     await completeIdentityTombstoneCleanup(candidate.user_id, candidate.reference_id);
-    return;
-  }
-  if (candidate.cleanup_kind === "reference") {
-    const paths = await beginIdentityDeletion(candidate.user_id, candidate.reference_id);
-    await deleteIdentityObjects(paths);
+  } else if (candidate.cleanup_kind === "reference") {
     await completeIdentityDeletion(candidate.user_id, candidate.reference_id);
-    return;
+  } else if (paths[0]) {
+    await markIdentitySourceDeleted(candidate.user_id, candidate.reference_id, paths[0]);
   }
-  const reference = await getIdentityReference(candidate.user_id, candidate.reference_id);
-  if (!reference?.upload_path) return;
-  await deleteIdentityObjects([reference.upload_path]);
-  await markIdentitySourceDeleted(candidate.user_id, candidate.reference_id, reference.upload_path);
 }
 
 function identityPath(userId: string, identityId: string): string {

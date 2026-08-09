@@ -32,7 +32,9 @@
     "test:db:branch-recovery": "node scripts/verify-branch-recovery.ts",
     "test:db:branch-recovery:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:branch-recovery",
     "test:db:quotas": "node scripts/verify-dream-quotas.ts",
-    "test:db:quotas:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:quotas"
+    "test:db:quotas:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:quotas",
+    "test:db:admission-config": "node scripts/verify-admission-config.ts",
+    "test:db:admission-config:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:admission-config"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

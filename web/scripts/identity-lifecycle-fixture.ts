@@ -22,6 +22,7 @@ export async function assertIdentityLifecycle(
   dreamImagePaths: string[],
   identityPaths: string[],
 ): Promise<void> {
+  await assertRenewedIdentitySurvivesStaleCleanup(admin, userId);
   const identityId = await prepareIdentity(admin, userId, identityPaths);
   await completeIdentity(admin, userId, identityId, identityPaths);
   const dreamId = await prepareIdentityDream(admin, userId, identityId);
@@ -32,6 +33,47 @@ export async function assertIdentityLifecycle(
   await assertReadyDream(admin, dreamId);
   await deleteIdentity(admin, userId, identityId, identityPaths);
   console.log("identity_lifecycle status=COMPLETED");
+}
+
+async function assertRenewedIdentitySurvivesStaleCleanup(
+  admin: AdminClient,
+  userId: string,
+): Promise<void> {
+  const operationId = crypto.randomUUID();
+  const prepared = await admin.rpc("prepare_identity_reference", {
+    p_user_id: userId, p_operation_key: operationId, p_mime_type: "image/jpeg",
+    p_consent_confirmed: true, p_consent_version: "dream-self-v1",
+  });
+  assertNoError(prepared.error);
+  const identityId = preparationSchema.array().min(1).parse(prepared.data)[0].reference_id;
+  const expired = await admin.from("identity_references").update({
+    upload_expires_at: new Date(Date.now() - 60_000).toISOString(),
+  }).eq("id", identityId);
+  assertNoError(expired.error);
+  const candidates = await admin.rpc("get_identity_cleanup_candidates", { p_limit: 250 });
+  assertNoError(candidates.error);
+  const candidateSchema = z.object({ reference_id: z.uuid(), cleanup_kind: z.string() });
+  const candidate = candidateSchema.array().parse(candidates.data)
+    .find((row) => row.reference_id === identityId);
+  if (candidate?.cleanup_kind !== "reference") throw new Error("Expired identity was not due");
+  const replay = await admin.rpc("prepare_identity_reference", {
+    p_user_id: userId, p_operation_key: operationId, p_mime_type: "image/jpeg",
+    p_consent_confirmed: true, p_consent_version: "dream-self-v1",
+  });
+  assertNoError(replay.error);
+  const claimToken = crypto.randomUUID();
+  const claimed = await admin.rpc("claim_identity_normalization", {
+    p_reference_id: identityId, p_user_id: userId, p_claim_token: claimToken,
+  });
+  assertNoError(claimed.error);
+  if (claimed.data !== true) throw new Error("Renewed identity could not be claimed");
+  const cleanup = await admin.rpc("begin_identity_cleanup", {
+    p_reference_id: identityId, p_user_id: userId, p_cleanup_kind: "reference",
+  });
+  assertNoError(cleanup.error);
+  if (z.array(z.unknown()).parse(cleanup.data).length !== 0) {
+    throw new Error("Stale cleanup claim deleted a renewed identity");
+  }
 }
 
 async function prepareIdentity(

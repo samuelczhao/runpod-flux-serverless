@@ -112,7 +112,9 @@ Runpod job slots and an edit reserves one from a 100-slot global UTC-day budget.
 Self has a separate six-photo hourly journal limit, 40-photo global daily limit, and
 two-pending ceiling. These counters are atomic
 across Vercel instances and exact operation replays do not consume another slot. Verify
-them with `pnpm --dir web test:db:quotas:linked` after applying migrations.
+Production settings with the read-only `pnpm --dir web test:db:admission-config:linked`.
+Run quota and recovery fixtures only against a disposable Supabase test project; together
+they exceed one public-demo day of reserved capacity.
 
 Vercel Firewall may add a coarse IP burst signal as a secondary layer. Begin with a
 log-only draft, inspect legitimate presentation traffic, and publish enforcement only

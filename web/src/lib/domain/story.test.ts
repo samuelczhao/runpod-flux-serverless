@@ -9,11 +9,14 @@ import {
 } from "@/lib/domain/story";
 
 const ID = "5deefbe0-2003-4af4-b75e-0bd9c22bed60";
+const NOW = Date.parse("2026-08-09T00:00:00.000Z");
+const ISSUED_AT = new Date(NOW).toISOString();
 
 function story(status: DreamStory["status"], versions: StoryVersion[] = []): DreamStory {
   return {
     id: ID, status, inputMode: "text", transcript: "A dream", awaitingTranscriptReview: false,
     title: null, summary: null, mood: [], failedStage: null, errorCode: null,
+    imageUrlsIssuedAt: ISSUED_AT,
     scenes: versions.length ? [{ id: ID, ordinal: 1, caption: "Moon", versionId: ID,
       imageUrl: null, versions }] : [],
   };
@@ -69,14 +72,15 @@ describe("dream story polling", () => {
     const ready = story("READY", [{ ...version("COMPLETED"),
       isSelected: true, imageUrl: "https://old.example/a.png" }]);
     ready.scenes[0]!.imageUrl = "https://old.example/a.png";
-    expect(planDreamPoll(ready)).toEqual({ delayMs: 3_000_000, preserveImageUrls: false });
+    expect(planDreamPoll(ready, NOW)).toEqual({ delayMs: 3_000_000, preserveImageUrls: false });
   });
 
   it("preserves a signed URL while a version identity is unchanged", () => {
     const current = story("READY", [{ ...version("COMPLETED"), imageUrl: "https://old.example/a.png" }]);
     const next = story("READY", [{ ...version("COMPLETED"), imageUrl: "https://new.example/a.png" }]);
-    expect(preserveStoryImageUrls(current, next).scenes[0]?.versions[0]?.imageUrl)
-      .toBe("https://old.example/a.png");
+    const merged = preserveStoryImageUrls(current, next);
+    expect(merged.scenes[0]?.versions[0]?.imageUrl).toBe("https://old.example/a.png");
+    expect(merged.imageUrlsIssuedAt).toBe(current.imageUrlsIssuedAt);
   });
 
   it("replaces a signed URL during a renewal poll", () => {
@@ -100,5 +104,31 @@ describe("dream story polling", () => {
     const next = story("READY", [{ ...version("COMPLETED"), imageUrl: "https://new.example/a.png" }]);
     expect(mergeStoryPollResult(current, next, true).scenes[0]?.versions[0]?.imageUrl)
       .toBe("https://new.example/a.png");
+  });
+
+  it("renews aged URLs while a branch remains active", () => {
+    const current = story("READY", [{
+      ...version("RUNNING"), isSelected: true, imageUrl: "https://old.example/a.png",
+    }]);
+    current.scenes[0]!.imageUrl = "https://old.example/a.png";
+    current.imageUrlsIssuedAt = new Date(NOW - 3_000_000).toISOString();
+    const next = story("READY", [{
+      ...version("RUNNING"), isSelected: true, imageUrl: "https://new.example/a.png",
+    }]);
+    next.scenes[0]!.imageUrl = "https://new.example/a.png";
+
+    const merged = mergeStoryPollResult(current, next, true, NOW);
+    expect(merged.scenes[0]?.versions[0]?.imageUrl).toBe("https://new.example/a.png");
+    expect(merged.imageUrlsIssuedAt).toBe(next.imageUrlsIssuedAt);
+  });
+
+  it("schedules terminal renewal from the actual signing time", () => {
+    const ready = story("READY", [{
+      ...version("COMPLETED"), isSelected: true, imageUrl: "https://old.example/a.png",
+    }]);
+    ready.scenes[0]!.imageUrl = "https://old.example/a.png";
+    ready.imageUrlsIssuedAt = new Date(NOW - 2_940_000).toISOString();
+
+    expect(planDreamPoll(ready, NOW)).toEqual({ delayMs: 60_000, preserveImageUrls: false });
   });
 });
