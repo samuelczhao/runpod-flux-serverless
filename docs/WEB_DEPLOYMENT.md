@@ -113,6 +113,8 @@ Self has a separate six-photo hourly journal limit, 40-photo global daily limit,
 two-pending ceiling. These counters are atomic
 across Vercel instances and exact operation replays do not consume another slot. Verify
 Production settings with the read-only `pnpm --dir web test:db:admission-config:linked`.
+Dormant work renewed after UTC rollover reserves the new day before it can start; already
+started and terminal replays retain their original reservation.
 Run quota and recovery fixtures only against a disposable Supabase test project; together
 they exceed one public-demo day of reserved capacity.
 

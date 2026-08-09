@@ -183,6 +183,8 @@ type DreamInsert = {
   user_id: string;
   input_mode: string;
   transcript?: string | null;
+  audio_mime_type?: string | null;
+  audio_upload_expires_at?: string | null;
   mood?: string[];
   status?: DreamStatus;
   retain_audio?: boolean;

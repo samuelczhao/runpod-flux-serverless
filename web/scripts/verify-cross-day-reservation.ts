@@ -1,0 +1,70 @@
+import { z } from "zod";
+import {
+  assertNoError,
+  cleanup,
+  createAdmin,
+  createAnonymousUser,
+  parseIntegrationEnv,
+  type AdminClient,
+} from "./branch-recovery-fixture.ts";
+
+const STORY_SLOT_RESERVATION = 8;
+const usageSchema = z.object({ used: z.number().int().nonnegative() }).nullable();
+
+async function main(): Promise<void> {
+  const env = parseIntegrationEnv();
+  const admin = createAdmin(env);
+  const userId = await createAnonymousUser(env);
+  try {
+    await assertCrossDayReservation(admin, userId);
+    console.log("cross_day_reservation status=COMPLETED");
+  } finally {
+    await cleanup(admin, userId, []);
+  }
+}
+
+async function assertCrossDayReservation(admin: AdminClient, userId: string): Promise<void> {
+  const operationId = crypto.randomUUID();
+  const previousDay = new Date(Date.now() - 86_400_000).toISOString();
+  const inserted = await admin.from("dreams").insert({
+    user_id: userId, input_mode: "audio", status: "DRAFT",
+    audio_operation_key: operationId, audio_mime_type: "audio/webm",
+    audio_upload_expires_at: previousDay, visual_style: "dream-cinema",
+    quota_reserved_at: previousDay,
+  }).select("id").single();
+  assertNoError(inserted.error);
+  const dreamId = z.object({ id: z.uuid() }).parse(inserted.data).id;
+  const before = await currentUsage(admin);
+  const args = {
+    p_user_id: userId, p_operation_key: operationId, p_mime_type: "audio/webm",
+    p_identity_reference_id: null, p_visual_style: "dream-cinema" as const,
+  };
+  const first = await admin.rpc("prepare_audio_dream", args);
+  const replay = await admin.rpc("prepare_audio_dream", args);
+  assertNoError(first.error); assertNoError(replay.error);
+  if (first.data !== dreamId || replay.data !== dreamId) throw new Error("Replay changed dream ID");
+  const after = await currentUsage(admin);
+  if (after - before !== STORY_SLOT_RESERVATION) {
+    throw new Error(`Cross-day replay reserved ${after - before} slots instead of 8`);
+  }
+  const row = await admin.from("dreams").select("quota_reserved_at,audio_upload_expires_at")
+    .eq("id", dreamId).single();
+  assertNoError(row.error);
+  const timestamps = z.object({
+    quota_reserved_at: z.iso.datetime({ offset: true }),
+    audio_upload_expires_at: z.iso.datetime({ offset: true }),
+  }).parse(row.data);
+  if (timestamps.quota_reserved_at.slice(0, 10) !== new Date().toISOString().slice(0, 10)) {
+    throw new Error("Dream reservation did not move to the current UTC bucket");
+  }
+}
+
+async function currentUsage(admin: AdminClient): Promise<number> {
+  const date = new Date().toISOString().slice(0, 10);
+  const result = await admin.from("dream_global_daily_usage").select("used")
+    .eq("bucket_date", date).maybeSingle();
+  assertNoError(result.error);
+  return usageSchema.parse(result.data)?.used ?? 0;
+}
+
+await main();

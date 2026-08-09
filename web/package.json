@@ -36,7 +36,9 @@
     "test:db:admission-config": "node scripts/verify-admission-config.ts",
     "test:db:admission-config:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:admission-config",
     "test:db:identity-cleanup-race": "node scripts/verify-identity-cleanup-race.ts",
-    "test:db:identity-cleanup-race:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:identity-cleanup-race"
+    "test:db:identity-cleanup-race:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:identity-cleanup-race",
+    "test:db:cross-day-reservation": "node scripts/verify-cross-day-reservation.ts",
+    "test:db:cross-day-reservation:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:cross-day-reservation"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

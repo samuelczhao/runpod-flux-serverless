@@ -207,6 +207,13 @@ one anonymous user and consumes one photo-preparation slot, but submits no GPU w
 pnpm --dir web test:db:identity-cleanup-race:linked
 ```
 
+After changing dream admission, run the cross-day replay verifier. It creates and removes
+one anonymous draft and consumes eight Runpod slots without calling a GPU:
+
+```bash
+pnpm --dir web test:db:cross-day-reservation:linked
+```
+
 Run the destructive quota verifier only against an isolated Supabase test project:
 
 ```bash
