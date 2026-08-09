@@ -34,7 +34,8 @@ anonymous user IDs, and provider job IDs are intentionally omitted.
 
 ## Final production acceptance
 
-The promoted release completed two new three-scene stories and one regenerated scene.
+The promoted release completed new three-scene and four-scene stories plus one regenerated
+scene.
 The runner verified duplicate text submissions did not create duplicate dreams, duplicate
 branch submissions did not create duplicate versions, and selecting the branch twice left
 the new version selected. Both stories finished `READY` with exactly one selected,
