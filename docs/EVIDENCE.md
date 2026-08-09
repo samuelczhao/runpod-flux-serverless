@@ -6,21 +6,24 @@ anonymous user IDs, and provider job IDs are intentionally omitted.
 
 ## Release identity
 
-- Adaptive scene-count application change `b2322b0` was reviewed and merged in
-  `c398bb0` after all GitHub checks passed.
-- Vercel deployment `dpl_2uAxeKAGmVNkEtPyKW6nZ7YGF7yG` was built from that change,
+- The hardened application release `0ce0081` was reviewed and merged in
+  `3895c65` after all GitHub checks passed.
+- Vercel deployment `dpl_3mzZ82Hjog64wQzWp3CzjazWXbiX` was built from that change,
   accepted on its unpromoted Production-target URL, then promoted unchanged to
   `dreamtrace.vercel.app`.
-- The required Runpod endpoint is `flux-1-dev-case-study`. Its GitHub-built template was
-  observed on image tag `75aa456df`; later web-only commits do not change the worker.
+- The required Runpod endpoint is `flux-1-dev-case-study`. Its worker is built from the
+  repository root Dockerfile and starts `handler.py`; no model weights or credentials are
+  committed to Git.
 - The endpoint remains queue based with one active worker, one-worker maximum, a
   300-second idle timeout, a 600-second execution timeout, and three allowed H100 tiers.
 
 ## Release gates
 
-- GitHub CI passed strict Python typecheck, 53 tests, Ruff, web typecheck, 208 tests,
+- GitHub CI passed strict Python typecheck, 54 tests, Ruff, web typecheck, 240 tests,
   ESLint, the Next.js Production build, and a clean custom-worker Docker build.
-- Supabase migrations 001 through 027 match the linked project. Remote schema lint has
+- The post-release acceptance guard passes 54 Python tests and 247 web tests locally,
+  including bounded transient GET retries and one-attempt POST, PUT, PATCH, and DELETE.
+- Supabase migrations 001 through 037 match the linked project. Remote schema lint has
   no errors.
 - The disposable linked-project fixture completed identity lifecycle and branch recovery,
   including terminal audio replay, stale-audio cleanup, cross-user RLS, one-active-branch
@@ -28,6 +31,25 @@ anonymous user IDs, and provider job IDs are intentionally omitted.
 - Public `/`, `/capture`, and `/journal` routes returned HTTP 200 after promotion. Vercel
   reported the deployment `Ready` and returned no error logs for the acceptance window.
 - The production dependency audit reported no known runtime vulnerabilities.
+
+## Final production acceptance
+
+The promoted release completed two new three-scene stories and one regenerated scene.
+The runner verified duplicate text submissions did not create duplicate dreams, duplicate
+branch submissions did not create duplicate versions, and selecting the branch twice left
+the new version selected. Both stories finished `READY` with exactly one selected,
+completed image per scene.
+
+One read-only status poll encountered `ECONNRESET`; the durable workflow still completed
+`READY` with all three images and Vercel reported no 5xx or error log. The acceptance
+runner now retries only allowlisted transient GET failures, at most three total attempts.
+Mutating requests are never retried by that transport helper. Two independent fresh-context
+reviews challenged the boundary before the corrected run passed.
+
+Immediately afterward, Runpod reported no queued, in-progress, retried, throttled, or
+unhealthy work across the used endpoints. The UTC-day admission ledgers were 89/100 story
+GPU slots and 1/40 Dream Self uploads; the high story count includes deliberate linked
+database quota fixtures that reserve capacity without submitting GPU jobs.
 
 ## Adaptive story acceptance
 
