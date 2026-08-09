@@ -34,7 +34,9 @@
     "test:db:quotas": "node scripts/verify-dream-quotas.ts",
     "test:db:quotas:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:quotas",
     "test:db:admission-config": "node scripts/verify-admission-config.ts",
-    "test:db:admission-config:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:admission-config"
+    "test:db:admission-config:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:admission-config",
+    "test:db:identity-cleanup-race": "node scripts/verify-identity-cleanup-race.ts",
+    "test:db:identity-cleanup-race:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:identity-cleanup-race"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

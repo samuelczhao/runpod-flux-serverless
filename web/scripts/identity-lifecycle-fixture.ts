@@ -35,7 +35,7 @@ export async function assertIdentityLifecycle(
   console.log("identity_lifecycle status=COMPLETED");
 }
 
-async function assertRenewedIdentitySurvivesStaleCleanup(
+export async function assertRenewedIdentitySurvivesStaleCleanup(
   admin: AdminClient,
   userId: string,
 ): Promise<void> {

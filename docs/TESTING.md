@@ -200,6 +200,13 @@ After applying migrations, run the read-only linked verifier against Production:
 pnpm --dir web test:db:admission-config:linked
 ```
 
+After changing photo cleanup claims, run the focused race verifier. It creates and removes
+one anonymous user and consumes one photo-preparation slot, but submits no GPU work:
+
+```bash
+pnpm --dir web test:db:identity-cleanup-race:linked
+```
+
 Run the destructive quota verifier only against an isolated Supabase test project:
 
 ```bash
