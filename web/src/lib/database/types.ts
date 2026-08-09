@@ -180,10 +180,14 @@ type IdentityGlobalDailyUsageRow = {
 }
 
 type DreamInsert = {
+  id?: string;
   user_id: string;
   input_mode: string;
   transcript?: string | null;
+  audio_storage_path?: string | null;
   audio_mime_type?: string | null;
+  audio_size_bytes?: number | null;
+  audio_uploaded_at?: string | null;
   audio_upload_expires_at?: string | null;
   mood?: string[];
   status?: DreamStatus;

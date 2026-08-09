@@ -16,14 +16,15 @@ async function main(): Promise<void> {
   const admin = createAdmin(env);
   const userId = await createAnonymousUser(env);
   try {
-    await assertCrossDayReservation(admin, userId);
+    await assertCrossDayPreparation(admin, userId);
+    await assertCrossDayWorkflowClaim(admin, userId);
     console.log("cross_day_reservation status=COMPLETED");
   } finally {
     await cleanup(admin, userId, []);
   }
 }
 
-async function assertCrossDayReservation(admin: AdminClient, userId: string): Promise<void> {
+async function assertCrossDayPreparation(admin: AdminClient, userId: string): Promise<void> {
   const operationId = crypto.randomUUID();
   const previousDay = new Date(Date.now() - 86_400_000).toISOString();
   const inserted = await admin.from("dreams").insert({
@@ -56,6 +57,32 @@ async function assertCrossDayReservation(admin: AdminClient, userId: string): Pr
   }).parse(row.data);
   if (timestamps.quota_reserved_at.slice(0, 10) !== new Date().toISOString().slice(0, 10)) {
     throw new Error("Dream reservation did not move to the current UTC bucket");
+  }
+}
+
+async function assertCrossDayWorkflowClaim(admin: AdminClient, userId: string): Promise<void> {
+  const dreamId = crypto.randomUUID();
+  const previousDay = new Date(Date.now() - 86_400_000).toISOString();
+  const storagePath = `${userId}/${dreamId}/source.webm`;
+  const inserted = await admin.from("dreams").insert({
+    id: dreamId, user_id: userId, input_mode: "audio", status: "UPLOADED",
+    audio_storage_path: storagePath, audio_mime_type: "audio/webm", audio_size_bytes: 1,
+    audio_uploaded_at: previousDay, audio_upload_expires_at: previousDay,
+    visual_style: "dream-cinema", quota_reserved_at: previousDay,
+  });
+  assertNoError(inserted.error);
+  const before = await currentUsage(admin);
+  const claimToken = crypto.randomUUID();
+  const args = { p_dream_id: dreamId, p_user_id: userId, p_claim_token: claimToken };
+  const claimed = await admin.rpc("claim_dream_workflow", args);
+  const replay = await admin.rpc("claim_dream_workflow", args);
+  assertNoError(claimed.error); assertNoError(replay.error);
+  const claimSchema = z.object({ workflow_id: z.string(), claimed: z.literal(true) });
+  claimSchema.array().length(1).parse(claimed.data);
+  claimSchema.array().length(1).parse(replay.data);
+  const after = await currentUsage(admin);
+  if (after - before !== STORY_SLOT_RESERVATION) {
+    throw new Error(`Cross-day workflow claim reserved ${after - before} slots instead of 8`);
   }
 }
 

@@ -208,7 +208,8 @@ pnpm --dir web test:db:identity-cleanup-race:linked
 ```
 
 After changing dream admission, run the cross-day replay verifier. It creates and removes
-one anonymous draft and consumes eight Runpod slots without calling a GPU:
+one anonymous session, covers both preparation replay and direct workflow start, and
+consumes 16 Runpod slots without calling a GPU:
 
 ```bash
 pnpm --dir web test:db:cross-day-reservation:linked
