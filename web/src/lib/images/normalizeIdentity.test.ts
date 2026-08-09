@@ -21,7 +21,7 @@ beforeAll(async () => {
 });
 
 it("normalizes, bounds, and hashes an uploaded photo", async () => {
-  const result = await normalizeIdentityImage(jpeg);
+  const result = await normalizeIdentityImage(jpeg, "image/jpeg");
   const metadata = await sharp(result.bytes).metadata();
   expect(metadata.format).toBe("png");
   expect(Math.max(result.width, result.height)).toBe(2_048);
@@ -31,15 +31,23 @@ it("normalizes, bounds, and hashes an uploaded photo", async () => {
 });
 
 it("rejects undecodable and oversized uploads", async () => {
-  await expect(normalizeIdentityImage(Buffer.from("not an image")))
+  await expect(normalizeIdentityImage(Buffer.from("not an image"), "image/jpeg"))
     .rejects.toBeInstanceOf(IdentityImageError);
-  await expect(normalizeIdentityImage(Buffer.alloc(8_388_609)))
+  await expect(normalizeIdentityImage(Buffer.alloc(8_388_609), "image/jpeg"))
     .rejects.toBeInstanceOf(IdentityImageError);
+});
+
+it("rejects unsupported or mislabeled decoded formats", async () => {
+  const gif = await sharp({
+    create: { width: 300, height: 300, channels: 3, background: "#84685b" },
+  }).gif().toBuffer();
+  await expect(normalizeIdentityImage(gif, "image/png")).rejects.toThrow("format");
+  await expect(normalizeIdentityImage(jpeg, "image/png")).rejects.toThrow("format");
 });
 
 it("rejects images too small to serve as a useful identity reference", async () => {
   const tiny = await sharp({
     create: { width: 64, height: 64, channels: 3, background: "#84685b" },
   }).png().toBuffer();
-  await expect(normalizeIdentityImage(tiny)).rejects.toThrow("too small");
+  await expect(normalizeIdentityImage(tiny, "image/png")).rejects.toThrow("too small");
 });

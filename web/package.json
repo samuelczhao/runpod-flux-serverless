@@ -29,7 +29,18 @@
     "demo:seed": "node scripts/live-demo-smoke.ts",
     "demo:identity": "node scripts/live-identity-smoke.ts",
     "demo:voice": "node scripts/live-voice-smoke.ts",
-    "test:db:branch-recovery": "node scripts/verify-branch-recovery.ts"
+    "test:db:branch-recovery": "node scripts/verify-branch-recovery.ts",
+    "test:db:branch-recovery:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:branch-recovery",
+    "test:db:quotas": "node scripts/verify-dream-quotas.ts",
+    "test:db:quotas:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:quotas",
+    "test:db:admission-config": "node scripts/verify-admission-config.ts",
+    "test:db:admission-config:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:admission-config",
+    "test:db:identity-cleanup-race": "node scripts/verify-identity-cleanup-race.ts",
+    "test:db:identity-cleanup-race:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:identity-cleanup-race",
+    "test:db:cross-day-reservation": "node scripts/verify-cross-day-reservation.ts",
+    "test:db:cross-day-reservation:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:cross-day-reservation",
+    "test:db:cross-day-audio-plan": "node scripts/verify-cross-day-reservation.ts --audio-plan-only",
+    "test:db:cross-day-audio-plan:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:cross-day-audio-plan"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

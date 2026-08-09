@@ -36,6 +36,8 @@ GPU platform behind one API call.
 - A generation job stores model, endpoint ID, stable request hash, provider job ID,
   state, timings, and cost provenance.
 - Provider request hashes use stable storage identities, not expiring signed URL bytes.
+- Private story links are renewed ten minutes before their one-hour expiry. Rapid workflow
+  polls preserve the current URL to avoid image flicker; renewal polls replace it.
 - Dream Self consent is versioned and recorded. New stories cannot use an expired
   reference; the original upload is deleted after normalization, and provider links last
   15 minutes.
@@ -43,6 +45,11 @@ GPU platform behind one API call.
   delayed tombstone sweep cover source, normalized, and late-race objects.
 - Branch workflow claims prevent replayed API requests from starting duplicate durable
   workflows.
+- Atomic database counters cap each journal at two active dreams, six new dreams, and 12
+  scene edits per UTC hour. Each story conservatively reserves eight Runpod job slots and
+  each edit reserves one from a durable 100-slot global UTC-day ceiling. Dream Self has
+  separate six-per-hour and 40-per-day preparation limits, with at most two pending.
+  Idempotent replays are checked before quota reservation and never consume twice.
 - Failed or cancelled scene edits are terminal and can be retried with a new operation;
   an unknown submission outcome stops polling and is never blindly resubmitted.
 - Catchable failures atomically release the matching workflow claim or run while the
@@ -130,10 +137,26 @@ pnpm --dir web build
 
 The linked-database test creates disposable anonymous users and tiny artifacts, exercises
 atomic claim/run recovery, verifies workflow exclusivity, stale-audio expiry, one-branch
-enforcement, and foreign-user isolation, then removes its fixtures:
+enforcement, and foreign-user isolation, then removes its fixtures. Run it only against
+an isolated Supabase test project:
 
 ```bash
-DREAMTRACE_DB_INTEGRATION=1 pnpm --dir web test:db:branch-recovery
+pnpm --dir web test:db:branch-recovery:linked
+```
+
+The separate quota fixture also requires an isolated test project. It verifies concurrent
+mixed text/audio admission, idempotent
+replay without double charging, stale-workflow protection, active and hourly ceilings,
+and durable usage counters:
+
+```bash
+pnpm --dir web test:db:quotas:linked
+```
+
+For the public project, use the read-only configuration verifier:
+
+```bash
+pnpm --dir web test:db:admission-config:linked
 ```
 
 ## Paid end-to-end demo seed

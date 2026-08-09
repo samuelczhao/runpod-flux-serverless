@@ -44,6 +44,7 @@ def test_accepts_boundary_values() -> None:
         ({"input": {"prompt": " "}}, "prompt"),
         ({"input": {"prompt": 1}}, "prompt"),
         ({"input": {"prompt": "x", "seed": True}}, "seed"),
+        ({"input": {"prompt": "x", "seed": None}}, "seed"),
         ({"input": {"prompt": "x", "seed": MAX_SEED + 1}}, "seed"),
         ({"input": {"prompt": "x", "width": True}}, "width"),
         ({"input": {"prompt": "x", "width": 511}}, "width"),

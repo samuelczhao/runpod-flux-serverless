@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { assertNoError, serviceHeaders, type AdminClient, type Env } from "./branch-recovery-fixture.ts";
+import {
+  assertNoError,
+  fixtureFetch,
+  serviceHeaders,
+  type AdminClient,
+  type Env,
+} from "./branch-recovery-fixture.ts";
 
 const dreamIdSchema = z.uuid();
 const AUDIO_MIME = "audio/webm";
@@ -12,14 +18,21 @@ export async function assertAudioPreparation(
 ): Promise<void> {
   const operationId = crypto.randomUUID();
   const args = audioPreparationArgs(userId, operationId, AUDIO_MIME);
-  const dreamId = await assertPreparationReplay(admin, args);
-  await assertMimeConflict(admin, args);
-  await assertNullOperationRejected(env, userId);
-  await assertNullMimeRejected(env, userId);
-  await assertTerminalReplayStable(admin, dreamId, args);
-  await assertExpiredDraftCleanup(env, admin, userId);
-  await assertCleanupOwnership(env, admin, userId);
-  await assertStaleProcessingExpires(admin, userId);
+  const dreamId = await audioStage("preparation-replay", () => assertPreparationReplay(admin, args));
+  await audioStage("mime-conflict", () => assertMimeConflict(admin, args));
+  await audioStage("null-operation", () => assertNullOperationRejected(env, userId));
+  await audioStage("null-mime", () => assertNullMimeRejected(env, userId));
+  await audioStage("terminal-replay", () => assertTerminalReplayStable(admin, dreamId, args));
+  await audioStage("expired-draft", () => assertExpiredDraftCleanup(env, admin, userId));
+  await audioStage("cleanup-ownership", () => assertCleanupOwnership(env, admin, userId));
+  await audioStage("stale-processing", () => assertStaleProcessingExpires(admin, userId));
+}
+
+async function audioStage<T>(name: string, operation: () => Promise<T>): Promise<T> {
+  console.log(`audio_fixture_stage name=${name} status=STARTED`);
+  const result = await operation();
+  console.log(`audio_fixture_stage name=${name} status=COMPLETED`);
+  return result;
 }
 
 async function assertPreparationReplay(
@@ -56,7 +69,9 @@ async function assertMimeConflict(
   args: ReturnType<typeof audioPreparationArgs>,
 ): Promise<void> {
   const conflict = await admin.rpc("prepare_audio_dream", { ...args, p_mime_type: "audio/mp4" });
-  if (!conflict.error) throw new Error("Audio operation accepted a changed MIME type");
+  if (conflict.error?.code !== "P4090") {
+    throw new Error(`Expected audio conflict P4090, received ${conflict.error?.code ?? "success"}`);
+  }
 }
 
 async function assertNullOperationRejected(env: Env, userId: string): Promise<void> {
@@ -270,7 +285,7 @@ async function expectAudioRpcFailure(
   name: string,
   body: Readonly<Record<string, unknown>>,
 ): Promise<void> {
-  const response = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/${name}`, {
+  const response = await fixtureFetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/${name}`, {
     method: "POST", headers: serviceHeaders(env), body: JSON.stringify(body),
   });
   if (response.ok) throw new Error(`${name} unexpectedly accepted invalid audio input`);

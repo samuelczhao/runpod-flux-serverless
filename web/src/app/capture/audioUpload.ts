@@ -38,10 +38,12 @@ export async function uploadDreamRecording(
   try {
     const dreamId = await persistRecording(recorder, blob, options);
     if (recorder.isMounted()) onComplete(dreamId);
-  } catch {
+  } catch (cause: unknown) {
     if (!recorder.isMounted()) return;
     recorder.setRecorded();
-    recorder.setError("The recording could not be uploaded. Try again, record again, or use text.");
+    recorder.setError(cause instanceof AudioPreparationError
+      ? cause.message
+      : "The recording could not be uploaded. Try again, record again, or use text.");
   }
 }
 
@@ -118,9 +120,21 @@ async function requestUpload(
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mimeType, operationId, ...options }),
   });
-  if (!response.ok) throw new Error("Audio upload preparation failed");
+  if (!response.ok) throw new AudioPreparationError(await responseErrorMessage(response));
   return uploadSchema.parse(await response.json() as unknown);
 }
+
+async function responseErrorMessage(response: Response): Promise<string> {
+  const fallback = "Audio upload preparation failed";
+  try {
+    const parsed = z.object({ error: z.string().min(1) }).safeParse(await response.json() as unknown);
+    return parsed.success ? parsed.data.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+class AudioPreparationError extends Error {}
 
 async function uploadBlob(
   path: string,

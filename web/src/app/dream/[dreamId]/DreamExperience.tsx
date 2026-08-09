@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactElement } f
 import Link from "next/link";
 import {
   dreamStorySchema,
-  preserveStoryImageUrls,
-  shouldPollDream,
+  mergeStoryPollResult,
+  planDreamPoll,
+  type DreamPollPlan,
   type DreamStory,
 } from "@/lib/domain/story";
 import { isRetryableHttpStatus } from "@/lib/domain/polling";
@@ -125,21 +126,25 @@ function useDreamStory(dreamId: string): {
   useEffect(() => {
     let active = true;
     let timer: number | undefined;
-    const schedule = () => { timer = window.setTimeout(() => void poll(), STORY_POLL_INTERVAL_MS); };
-    const poll = async () => {
+    const schedule = (plan: DreamPollPlan) => {
+      timer = window.setTimeout(() => void poll(plan.preserveImageUrls), plan.delayMs);
+    };
+    const poll = async (preserveImageUrls: boolean) => {
       try {
         const next = await fetchDream(dreamId);
         if (!active) return;
-        setStory((current) => preserveStoryImageUrls(current, next)); setError(null);
-        if (shouldPollDream(next)) schedule();
+        setStory((current) => mergeStoryPollResult(current, next, preserveImageUrls));
+        setError(null);
+        const plan = planDreamPoll(next);
+        if (plan) schedule(plan);
       } catch (cause: unknown) {
         if (!active) return;
         const retrying = shouldRetryStoryError(cause);
         setError({ message: "The private story could not be loaded.", retrying });
-        if (retrying) schedule();
+        if (retrying) schedule({ delayMs: STORY_POLL_INTERVAL_MS, preserveImageUrls });
       }
     };
-    void poll();
+    void poll(false);
     return () => { active = false; if (timer !== undefined) window.clearTimeout(timer); };
   }, [dreamId, refreshKey]);
   return { story, error, refresh: requestRefresh };

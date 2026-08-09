@@ -31,6 +31,7 @@ export const dreamStorySchema = z.object({
   mood: z.array(z.string()),
   failedStage: z.string().nullable(),
   errorCode: z.string().nullable(),
+  imageUrlsIssuedAt: z.iso.datetime({ offset: true }),
   scenes: z.array(storySceneSchema).max(MAX_STORY_SCENES),
 }).strict();
 
@@ -41,10 +42,33 @@ export type StoryVersion = z.infer<typeof storyVersionSchema>;
 const ACTIVE_VERSION_STATUSES = new Set<StoryVersion["status"]>([
   "PENDING", "SUBMITTING", "QUEUED", "RUNNING",
 ]);
+export const STORY_IMAGE_URL_TTL_SECONDS = 3_600;
+const ACTIVE_STORY_POLL_INTERVAL_MS = 3_000;
+const STORY_IMAGE_URL_REFRESH_BUFFER_SECONDS = 600;
+const STORY_IMAGE_URL_REFRESH_AGE_MS = (
+  STORY_IMAGE_URL_TTL_SECONDS - STORY_IMAGE_URL_REFRESH_BUFFER_SECONDS
+) * 1_000;
 
-export function shouldPollDream(story: DreamStory): boolean {
-  if (story.status === "FAILED") return false;
-  if (story.status !== "READY") return true;
+export interface DreamPollPlan {
+  readonly delayMs: number;
+  readonly preserveImageUrls: boolean;
+}
+
+export function planDreamPoll(
+  story: DreamStory,
+  nowMs: number = Date.now(),
+): DreamPollPlan | null {
+  if (story.status === "FAILED") return null;
+  if (story.status !== "READY" || hasActiveVersion(story)) {
+    return { delayMs: ACTIVE_STORY_POLL_INTERVAL_MS, preserveImageUrls: true };
+  }
+  if (!story.scenes.some((scene) => scene.imageUrl)) return null;
+  const issuedAtMs = Date.parse(story.imageUrlsIssuedAt);
+  const delayMs = Math.max(0, issuedAtMs + STORY_IMAGE_URL_REFRESH_AGE_MS - nowMs);
+  return { delayMs, preserveImageUrls: false };
+}
+
+function hasActiveVersion(story: DreamStory): boolean {
   return story.scenes.some((scene) => scene.versions.some(
     (version) => ACTIVE_VERSION_STATUSES.has(version.status),
   ));
@@ -66,5 +90,29 @@ export function preserveStoryImageUrls(
     const selected = versions.find((version) => version.id === scene.versionId);
     return { ...scene, versions, imageUrl: selected?.imageUrl ?? scene.imageUrl };
   });
-  return { ...next, scenes };
+  const imageUrlsIssuedAt = urls.size > 0 ? current.imageUrlsIssuedAt : next.imageUrlsIssuedAt;
+  return { ...next, imageUrlsIssuedAt, scenes };
+}
+
+export function mergeStoryPollResult(
+  current: DreamStory | null,
+  next: DreamStory,
+  preserveImageUrls: boolean,
+  nowMs: number = Date.now(),
+): DreamStory {
+  if (!preserveImageUrls || crossedImageRenewalBoundary(current, next)
+    || imageUrlsNeedRenewal(current, nowMs)) return next;
+  return preserveStoryImageUrls(current, next);
+}
+
+function imageUrlsNeedRenewal(story: DreamStory | null, nowMs: number): boolean {
+  if (!story || !story.scenes.some((scene) => scene.imageUrl)) return false;
+  return Date.parse(story.imageUrlsIssuedAt) + STORY_IMAGE_URL_REFRESH_AGE_MS <= nowMs;
+}
+
+function crossedImageRenewalBoundary(current: DreamStory | null, next: DreamStory): boolean {
+  if (!current || current.id !== next.id) return false;
+  if (current.status !== "READY" && next.status === "READY") return true;
+  return current.status === "READY" && next.status === "READY"
+    && hasActiveVersion(current) && !hasActiveVersion(next);
 }

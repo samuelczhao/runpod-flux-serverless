@@ -28,7 +28,8 @@ submit and is excluded from the idempotency hash.
 
 ## Lifecycle invariants
 
-- Input is JPEG, PNG, or WebP, at most 8 MB and 25 million decoded pixels.
+- Input is JPEG, PNG, or WebP, at most 8 MB and 25 million decoded pixels. The server
+  checks the decoded format and rejects a mismatch with the declared upload MIME type.
 - The normalized reference is 256–2,048 pixels per side, sRGB PNG, and has no EXIF.
 - Consent is mandatory and recorded as the versioned `dream-self-v1` contract.
 - Replacement activates the new image only after normalization and database completion;
@@ -57,7 +58,8 @@ adapter.
 
 - A signed-URL failure happens before the paid job claim, so a safe retry remains possible.
 - An ambiguous database completion is reread and reconciled before any normalized object
-  is removed; a lost success response cannot corrupt a committed reference.
+  is removed. If that reread is also unavailable, the normalized object is preserved for
+  reconciliation; a lost success response cannot corrupt a committed reference.
 - Replays compare identity ID, content hash, style, prompt, model, endpoint, and seed.
 - Provider images must come from an approved HTTPS Runpod image host. Redirect targets
   are revalidated, credentials and custom ports are rejected, and bytes plus PNG signature

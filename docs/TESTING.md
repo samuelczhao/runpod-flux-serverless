@@ -15,7 +15,7 @@ Current local evidence:
 | Check | Result |
 | --- | --- |
 | mypy strict | Passed, 14 source files |
-| pytest | Passed, 53 tests |
+| pytest | Passed, 54 tests |
 | Ruff | Passed |
 
 The unit suite covers default and boundary inputs, malformed types, booleans as integers,
@@ -159,7 +159,7 @@ The GPU-free web suite covers normalization limits and metadata removal, version
 consent, signed-upload response projection, stored/ready replay, source cleanup replay,
 ambiguous database completion, deterministic tombstone cleanup, provider-URL signing
 before job claim, stable request hashing, style/identity audio retry behavior, and prompt
-budget preservation. Current local result: 42 files and 208 tests passed, followed by
+budget preservation. Current local result: 44 files and 237 tests passed, followed by
 zero-warning ESLint and a successful Next.js Production build.
 
 Together, the GPU-free suite, linked-project fixture, and live synthetic-portrait run
@@ -181,6 +181,58 @@ pose-level action fidelity remains a known model-quality limitation.
 Identity quality is a visual acceptance criterion, not a unit-test claim. Keep recording
 fixture provenance, prompt, style, selected images, Runpod timings, and exact release
 commit without committing the face image or signed URLs.
+
+## Public-demo admission controls
+
+The database is the authoritative GPU-allocation boundary. It allows at most two active
+or freshly prepared dreams per journal, six new dreams per journal per UTC hour, and 12
+scene edits per journal per UTC hour. Each story conservatively reserves eight Runpod job
+slots and each edit reserves one from 100 slots across the demo per UTC day. This covers
+the worst-case audio story: transcription, planning, and six images. Dream Self separately
+allows six photo preparations per journal per UTC hour and 40 across the demo per UTC day,
+with at most two pending at once. Exact operation replays return the original record
+without consuming another slot. Global counters remain durable when an anonymous user is
+deleted, so a new browser session cannot bypass either daily ceiling.
+
+After applying migrations, run the read-only linked verifier against Production:
+
+```bash
+pnpm --dir web test:db:admission-config:linked
+```
+
+After changing photo cleanup claims, run the focused race verifier. It creates and removes
+one anonymous user and consumes one photo-preparation slot, but submits no GPU work:
+
+```bash
+pnpm --dir web test:db:identity-cleanup-race:linked
+```
+
+After changing dream admission, run the cross-day replay verifier. It creates and removes
+one anonymous session, covers preparation, upload, and ownerless processing retries, proves
+audio transcript confirmation is reserved, proves an existing workflow is not
+double-charged, and consumes 40 slots without calling a GPU:
+
+```bash
+pnpm --dir web test:db:cross-day-reservation:linked
+```
+
+To verify only the audio transcript-confirmation handoff against the public project, use
+the focused eight-slot case:
+
+```bash
+pnpm --dir web test:db:cross-day-audio-plan:linked
+```
+
+Run the destructive quota verifier only against an isolated Supabase test project:
+
+```bash
+pnpm --dir web test:db:quotas:linked
+```
+
+It exercises concurrent text/audio admission, scene-edit and photo ceilings, replay and
+conflict precedence, stale workflow claims, denial codes, durable counters, and fixture
+cleanup. It consumes 60 Runpod job slots and six photo-preparation slots from
+the current UTC day, but it does not call a GPU.
 
 ## Queue check
 

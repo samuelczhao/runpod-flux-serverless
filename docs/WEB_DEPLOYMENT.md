@@ -104,6 +104,25 @@ anonymous-session checks.
 If Git is connected later, use a fully isolated Preview for staged acceptance before
 merging; merging `main` then publishes Production automatically and replaces steps 2–6.
 
+## Abuse controls
+
+Supabase is the authoritative admission boundary: two active dreams per journal, six new
+dreams and 12 scene edits per journal per UTC hour. A story conservatively reserves eight
+Runpod job slots and an edit reserves one from a 100-slot global UTC-day budget. Dream
+Self has a separate six-photo hourly journal limit, 40-photo global daily limit, and
+two-pending ceiling. These counters are atomic
+across Vercel instances and exact operation replays do not consume another slot. Verify
+Production settings with the read-only `pnpm --dir web test:db:admission-config:linked`.
+Dormant work renewed after UTC rollover reserves the new day before it can start; already
+started and terminal replays retain their original reservation.
+Run quota and recovery fixtures only against a disposable Supabase test project; together
+they exceed one public-demo day of reserved capacity.
+
+Vercel Firewall may add a coarse IP burst signal as a secondary layer. Begin with a
+log-only draft, inspect legitimate presentation traffic, and publish enforcement only
+after the threshold is justified. A staged rule is not active protection and must never
+be described as one.
+
 ## Rollback
 
 For a CLI-based first release, do not promote a failing `--skip-domain` deployment; fix

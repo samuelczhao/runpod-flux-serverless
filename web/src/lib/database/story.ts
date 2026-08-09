@@ -3,10 +3,13 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database/types";
 import { parseDatabaseRow, parseDatabaseRows, throwIfDatabaseError } from "@/lib/database/errors";
-import { dreamStorySchema, type DreamStory, type StoryScene } from "@/lib/domain/story";
+import {
+  dreamStorySchema,
+  STORY_IMAGE_URL_TTL_SECONDS,
+  type DreamStory,
+  type StoryScene,
+} from "@/lib/domain/story";
 import { jobStatusSchema } from "@/lib/database/schemas";
-
-const IMAGE_URL_TTL_SECONDS = 3_600;
 
 const dreamRowSchema = z.object({
   id: z.uuid(), status: z.string(), title: z.string().nullable(), summary: z.string().nullable(),
@@ -37,7 +40,8 @@ export async function readDreamStory(
     id: dream.id, status: dream.status, title: dream.title, summary: dream.summary,
     inputMode: dream.input_mode, transcript: dream.transcript,
     awaitingTranscriptReview: needsTranscriptReview(dream),
-    mood: dream.mood, failedStage: dream.failed_stage, errorCode: dream.error_code, scenes: storyScenes,
+    mood: dream.mood, failedStage: dream.failed_stage, errorCode: dream.error_code,
+    imageUrlsIssuedAt: new Date().toISOString(), scenes: storyScenes,
   });
 }
 
@@ -100,7 +104,8 @@ async function signImages(
     .filter((path): path is string => path !== null);
   const paths = [...new Set(storedPaths)];
   if (paths.length === 0) return new Map();
-  const result = await client.storage.from("dream-images").createSignedUrls(paths, IMAGE_URL_TTL_SECONDS);
+  const result = await client.storage.from("dream-images")
+    .createSignedUrls(paths, STORY_IMAGE_URL_TTL_SECONDS);
   throwIfDatabaseError(result.error);
   const images = z.array(signedImageSchema).length(paths.length).parse(result.data);
   return new Map(images.map((image) => {

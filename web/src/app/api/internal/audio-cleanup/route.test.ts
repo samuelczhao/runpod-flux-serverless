@@ -15,7 +15,9 @@ vi.mock("@/lib/database/identity", () => ({ cleanupIdentityCandidates: mocks.ide
 beforeEach(() => {
   process.env = { ...ORIGINAL_ENV, CRON_SECRET: SECRET };
   mocks.candidates.mockReset(); mocks.identities.mockReset(); mocks.start.mockReset();
-  mocks.identities.mockResolvedValue({ inspected: 0, failed: 0 });
+  mocks.identities.mockResolvedValue({
+    inspected: 0, failed: 0, remaining: 0, oldestDueAt: null,
+  });
 });
 
 afterEach(() => {
@@ -33,7 +35,8 @@ it("reconciles every expired audio cleanup", async () => {
   mocks.candidates.mockResolvedValue(candidates); mocks.start.mockResolvedValue(undefined);
   const response = await GET(authorizedRequest());
   expect(response.status).toBe(200);
-  expect(mocks.candidates).toHaveBeenCalledWith(50);
+  expect(mocks.candidates).toHaveBeenCalledWith(100);
+  expect(mocks.identities).toHaveBeenCalledWith(250);
   expect(mocks.start).toHaveBeenCalledTimes(2);
 });
 
@@ -42,7 +45,24 @@ it("reports partial reconciliation failures", async () => {
   mocks.start.mockRejectedValue(new Error("workflow unavailable"));
   const response = await GET(authorizedRequest());
   expect(response.status).toBe(503);
-  await expect(response.json()).resolves.toEqual({ inspected: 1, failed: 1 });
+  await expect(response.json()).resolves.toEqual({
+    inspected: 1, failed: 1, identityBacklog: 0, oldestIdentityDueAt: null,
+  });
+});
+
+it("reports a cleanup backlog after a full sweep", async () => {
+  mocks.candidates.mockResolvedValue([]);
+  mocks.identities.mockResolvedValue({
+    inspected: 100,
+    failed: 0,
+    remaining: 3,
+    oldestDueAt: "2026-08-08T10:00:00.000Z",
+  });
+
+  const response = await GET(authorizedRequest());
+
+  expect(response.status).toBe(503);
+  await expect(response.json()).resolves.toMatchObject({ identityBacklog: 3 });
 });
 
 function authorizedRequest(): Request {

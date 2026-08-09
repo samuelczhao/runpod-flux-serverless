@@ -68,3 +68,7 @@
   temporary unconditional branches must not survive into the working tree.
 - Before replacing a database constraint, check existing lifecycle shapes. Deleted audio
   intentionally retains `audio_uploaded_at` as provenance after path, MIME, and size clear.
+- Applied migrations are immutable, including uncommitted files already pushed during a
+  branch. Put every subsequent correction in a new forward migration and dry-run it alone.
+- Never use reserved retryable SQLSTATE `40001` for logical conflicts. PostgREST can retry
+  it until the HTTP client times out; application conflicts use the project code `P4090`.

@@ -20,6 +20,7 @@ import type { NormalizedIdentityImage } from "@/lib/images/normalizeIdentity";
 const IDENTITY_BUCKET = "identity-references";
 const IDENTITY_PREVIEW_URL_SECONDS = 3_600;
 const IDENTITY_PROVIDER_URL_SECONDS = 900;
+const IDENTITY_CLEANUP_BATCH_SIZE = 10;
 const MISSING_OBJECT_STATUSES = new Set([400, 404]);
 const signedUploadSchema = z.object({
   path: z.string().min(1),
@@ -39,6 +40,10 @@ const cleanupCandidateSchema = z.object({
   reference_id: uuidSchema,
   user_id: uuidSchema,
   cleanup_kind: z.enum(["source", "reference", "tombstone"]),
+}).strict();
+const cleanupHealthSchema = z.object({
+  due_count: z.coerce.number().int().nonnegative(),
+  oldest_due_at: z.iso.datetime({ offset: true }).nullable(),
 }).strict();
 
 export const identityReferenceSchema = z.object({
@@ -145,26 +150,64 @@ export async function storeNormalizedIdentity(
   image: NormalizedIdentityImage,
 ): Promise<string> {
   const path = identityPath(userId, identityId);
-  const result = await createSupabaseAdminClient().storage.from(IDENTITY_BUCKET)
-    .upload(path, image.bytes, { contentType: "image/png", upsert: true });
-  throwIfDatabaseError(result.error);
+  const bucket = createSupabaseAdminClient().storage.from(IDENTITY_BUCKET);
+  const result = await bucket.upload(path, image.bytes, {
+    contentType: "image/png", upsert: false,
+  });
+  if (result.error) {
+    const existing = await bucket.download(path);
+    if (!existing.error && existing.data) {
+      const bytes = Buffer.from(await existing.data.arrayBuffer());
+      if (bytes.equals(image.bytes)) return path;
+    }
+    throwIfDatabaseError(result.error);
+  }
   return z.object({ path: z.string().min(1) }).passthrough().parse(result.data).path;
 }
 
 export async function completeIdentityReference(
   userId: string,
   identityId: string,
+  claimToken: string,
   path: string,
   image: NormalizedIdentityImage,
 ): Promise<void> {
   const result = await createSupabaseAdminClient().rpc("complete_identity_reference", {
     p_reference_id: identityId,
     p_user_id: userId,
+    p_claim_token: claimToken,
     p_storage_path: path,
     p_size_bytes: image.bytes.length,
     p_width: image.width,
     p_height: image.height,
     p_content_sha256: image.sha256,
+  });
+  throwIfDatabaseError(result.error);
+}
+
+export async function claimIdentityNormalization(
+  userId: string,
+  identityId: string,
+  claimToken: string,
+): Promise<boolean> {
+  const result = await createSupabaseAdminClient().rpc("claim_identity_normalization", {
+    p_reference_id: identityId,
+    p_user_id: userId,
+    p_claim_token: claimToken,
+  });
+  throwIfDatabaseError(result.error);
+  return z.boolean().parse(result.data);
+}
+
+export async function releaseIdentityNormalization(
+  userId: string,
+  identityId: string,
+  claimToken: string,
+): Promise<void> {
+  const result = await createSupabaseAdminClient().rpc("release_identity_normalization", {
+    p_reference_id: identityId,
+    p_user_id: userId,
+    p_claim_token: claimToken,
   });
   throwIfDatabaseError(result.error);
 }
@@ -242,37 +285,74 @@ export async function markIdentitySourceDeleted(
 export async function cleanupIdentityCandidates(limit: number): Promise<{
   readonly inspected: number;
   readonly failed: number;
+  readonly remaining: number;
+  readonly oldestDueAt: string | null;
 }> {
-  const result = await createSupabaseAdminClient().rpc("get_identity_cleanup_candidates", {
-    p_limit: z.number().int().min(1).max(100).parse(limit),
+  const client = createSupabaseAdminClient();
+  const result = await client.rpc("get_identity_cleanup_candidates", {
+    p_limit: z.number().int().min(1).max(250).parse(limit),
   });
   throwIfDatabaseError(result.error);
   const candidates = parseDatabaseRows(cleanupCandidateSchema, result.data);
-  const outcomes = await Promise.allSettled(candidates.map(cleanupIdentityCandidate));
+  const failed = await cleanupIdentityBatches(candidates);
+  const health = await client.rpc("get_identity_cleanup_health");
+  throwIfDatabaseError(health.error);
+  const snapshot = parseDatabaseRows(cleanupHealthSchema, health.data)[0];
+  if (!snapshot) throw new IdentityPreparationError("Photo cleanup health is unavailable");
   return {
     inspected: candidates.length,
-    failed: outcomes.filter((outcome) => outcome.status === "rejected").length,
+    failed,
+    remaining: snapshot.due_count,
+    oldestDueAt: snapshot.oldest_due_at,
   };
+}
+
+async function cleanupIdentityBatches(
+  candidates: readonly z.infer<typeof cleanupCandidateSchema>[],
+): Promise<number> {
+  let failed = 0;
+  for (let index = 0; index < candidates.length; index += IDENTITY_CLEANUP_BATCH_SIZE) {
+    const batch = candidates.slice(index, index + IDENTITY_CLEANUP_BATCH_SIZE);
+    const outcomes = await Promise.allSettled(batch.map(cleanupIdentityCandidate));
+    failed += outcomes.filter((outcome) => outcome.status === "rejected").length;
+  }
+  return failed;
 }
 
 async function cleanupIdentityCandidate(
   candidate: z.infer<typeof cleanupCandidateSchema>,
 ): Promise<void> {
+  const paths = await beginIdentityCleanup(candidate);
+  if (!paths) return;
+  await deleteIdentityObjects(paths);
+  await completeClaimedIdentityCleanup(candidate, paths);
+}
+
+async function beginIdentityCleanup(
+  candidate: z.infer<typeof cleanupCandidateSchema>,
+): Promise<readonly string[] | null> {
+  const result = await createSupabaseAdminClient().rpc("begin_identity_cleanup", {
+    p_reference_id: candidate.reference_id,
+    p_user_id: candidate.user_id,
+    p_cleanup_kind: candidate.cleanup_kind,
+  });
+  throwIfDatabaseError(result.error);
+  const row = parseDatabaseRows(deletionSchema, result.data)[0];
+  if (!row) return null;
+  return [...new Set([row.source_path, row.reference_path].filter(isString))];
+}
+
+async function completeClaimedIdentityCleanup(
+  candidate: z.infer<typeof cleanupCandidateSchema>,
+  paths: readonly string[],
+): Promise<void> {
   if (candidate.cleanup_kind === "tombstone") {
-    await deleteIdentityObjects([identityPath(candidate.user_id, candidate.reference_id)]);
     await completeIdentityTombstoneCleanup(candidate.user_id, candidate.reference_id);
-    return;
-  }
-  if (candidate.cleanup_kind === "reference") {
-    const paths = await beginIdentityDeletion(candidate.user_id, candidate.reference_id);
-    await deleteIdentityObjects(paths);
+  } else if (candidate.cleanup_kind === "reference") {
     await completeIdentityDeletion(candidate.user_id, candidate.reference_id);
-    return;
+  } else if (paths[0]) {
+    await markIdentitySourceDeleted(candidate.user_id, candidate.reference_id, paths[0]);
   }
-  const reference = await getIdentityReference(candidate.user_id, candidate.reference_id);
-  if (!reference?.upload_path) return;
-  await deleteIdentityObjects([reference.upload_path]);
-  await markIdentitySourceDeleted(candidate.user_id, candidate.reference_id, reference.upload_path);
 }
 
 function identityPath(userId: string, identityId: string): string {

@@ -11,6 +11,7 @@ import {
   createAdmin,
   createAnonymousUser,
   createFixture,
+  fixtureFetch,
   parseIntegrationEnv,
   serviceHeaders,
   uploadArtifact,
@@ -49,18 +50,31 @@ async function verifyFixture(
   storagePaths: string[],
   identityPaths: string[],
 ): Promise<void> {
-  await assertAudioPreparation(env, admin, userId);
-  await assertTextWorkflowRecovery(admin, userId);
-  await assertIdentityLifecycle(admin, userId, storagePaths, identityPaths);
-  const fixture = await createFixture(admin, userId, storagePaths);
-  await assertNullGuards(env, fixture);
-  await assertSingleBranchInvariant(env, admin, fixture);
-  await assertGenerationIdentity(admin, fixture);
-  await assertWorkflowClaiming(admin, fixture);
-  await assertForeignVersionHidden(env, admin, fixture.versionId);
-  await verifyRecovery(admin, fixture);
-  await assertTerminalBranchCanRetry(env, admin, userId, storagePaths);
+  await fixtureStage("audio-lifecycle", () => assertAudioPreparation(env, admin, userId));
+  await fixtureStage("text-recovery", () => assertTextWorkflowRecovery(admin, userId));
+  await fixtureStage("identity-lifecycle", () => (
+    assertIdentityLifecycle(admin, userId, storagePaths, identityPaths)
+  ));
+  const fixture = await fixtureStage("branch-setup", () => createFixture(admin, userId, storagePaths));
+  await fixtureStage("null-guards", () => assertNullGuards(env, fixture));
+  await fixtureStage("single-branch", () => assertSingleBranchInvariant(env, admin, fixture));
+  await fixtureStage("generation-identity", () => assertGenerationIdentity(admin, fixture));
+  await fixtureStage("workflow-claim", () => assertWorkflowClaiming(admin, fixture));
+  await fixtureStage("foreign-access", () => assertForeignVersionHidden(env, admin, fixture.versionId));
+  await fixtureStage("job-recovery", () => verifyRecovery(admin, fixture));
+  await fixtureStage("terminal-retry", () => assertTerminalBranchCanRetry(env, admin, userId, storagePaths));
   console.log("branch_recovery status=COMPLETED");
+}
+
+async function fixtureStage<T>(name: string, operation: () => Promise<T>): Promise<T> {
+  console.log(`fixture_stage name=${name} status=STARTED`);
+  try {
+    const result = await operation();
+    console.log(`fixture_stage name=${name} status=COMPLETED`);
+    return result;
+  } catch (error: unknown) {
+    throw new Error(`Fixture stage ${name} failed`, { cause: error });
+  }
 }
 
 async function assertTextWorkflowRecovery(admin: AdminClient, userId: string): Promise<void> {
@@ -342,7 +356,7 @@ async function assertForeignVersionHidden(env: Env, admin: AdminClient, versionI
   const client = createClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-    { auth: { autoRefreshToken: false, persistSession: false } },
+    { auth: { autoRefreshToken: false, persistSession: false }, global: { fetch: fixtureFetch } },
   );
   const auth = await client.auth.signInAnonymously();
   assertNoError(auth.error);
@@ -358,7 +372,7 @@ async function assertForeignVersionHidden(env: Env, admin: AdminClient, versionI
 }
 
 async function parentIdForFixture(env: Env, versionId: string): Promise<string> {
-  const response = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/scene_versions?id=eq.${versionId}&select=parent_version_id`, {
+  const response = await fixtureFetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/scene_versions?id=eq.${versionId}&select=parent_version_id`, {
     headers: serviceHeaders(env),
   });
   if (!response.ok) throw new Error(`Fixture parent lookup failed with HTTP ${response.status}`);
@@ -371,7 +385,7 @@ async function expectRpcFailure(
   functionName: string,
   body: Readonly<Record<string, unknown>>,
 ): Promise<void> {
-  const response = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/${functionName}`, {
+  const response = await fixtureFetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/${functionName}`, {
     method: "POST", headers: serviceHeaders(env), body: JSON.stringify(body),
   });
   if (response.ok) throw new Error(`${functionName} unexpectedly accepted a NULL identity`);
