@@ -3,6 +3,6 @@ export default defineConfig({
   resolve: { alias: { "@": `${import.meta.dirname}/src` } },
   test: {
     coverage: { reporter: ["text", "json", "html"] },
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
   },
 });
