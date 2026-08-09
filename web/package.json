@@ -38,7 +38,9 @@
     "test:db:identity-cleanup-race": "node scripts/verify-identity-cleanup-race.ts",
     "test:db:identity-cleanup-race:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:identity-cleanup-race",
     "test:db:cross-day-reservation": "node scripts/verify-cross-day-reservation.ts",
-    "test:db:cross-day-reservation:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:cross-day-reservation"
+    "test:db:cross-day-reservation:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:cross-day-reservation",
+    "test:db:cross-day-audio-plan": "node scripts/verify-cross-day-reservation.ts --audio-plan-only",
+    "test:db:cross-day-audio-plan:linked": "bash ../scripts/run-linked-db-fixture.sh test:db:cross-day-audio-plan"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

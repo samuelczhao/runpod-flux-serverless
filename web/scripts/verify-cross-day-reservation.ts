@@ -9,6 +9,7 @@ import {
 } from "./branch-recovery-fixture.ts";
 
 const STORY_SLOT_RESERVATION = 8;
+const AUDIO_PLAN_ONLY = process.argv.includes("--audio-plan-only");
 const usageSchema = z.object({ used: z.number().int().nonnegative() }).nullable();
 
 async function main(): Promise<void> {
@@ -16,15 +17,24 @@ async function main(): Promise<void> {
   const admin = createAdmin(env);
   const userId = await createAnonymousUser(env);
   try {
-    await assertCrossDayPreparation(admin, userId);
-    await assertCrossDayWorkflowClaim(admin, userId, "UPLOADED", "audio");
-    await assertCrossDayWorkflowClaim(admin, userId, "TRANSCRIBING", "audio");
-    await assertCrossDayWorkflowClaim(admin, userId, "PLANNING", "text");
-    await assertOwnedWorkflowNotRecharged(admin, userId);
+    if (AUDIO_PLAN_ONLY) {
+      await assertCrossDayAudioPlanClaim(admin, userId);
+    } else {
+      await assertAllReservationPaths(admin, userId);
+    }
     console.log("cross_day_reservation status=COMPLETED");
   } finally {
     await cleanup(admin, userId, []);
   }
+}
+
+async function assertAllReservationPaths(admin: AdminClient, userId: string): Promise<void> {
+  await assertCrossDayPreparation(admin, userId);
+  await assertCrossDayWorkflowClaim(admin, userId, "UPLOADED", "audio");
+  await assertCrossDayWorkflowClaim(admin, userId, "TRANSCRIBING", "audio");
+  await assertCrossDayWorkflowClaim(admin, userId, "PLANNING", "text");
+  await assertCrossDayAudioPlanClaim(admin, userId);
+  await assertOwnedWorkflowNotRecharged(admin, userId);
 }
 
 async function assertCrossDayPreparation(admin: AdminClient, userId: string): Promise<void> {
@@ -126,6 +136,37 @@ async function assertOwnedWorkflowNotRecharged(admin: AdminClient, userId: strin
     .array().length(1).parse(result.data)[0];
   if (!row || await currentUsage(admin) !== before) {
     throw new Error("Existing workflow was charged a second daily reservation");
+  }
+}
+
+async function assertCrossDayAudioPlanClaim(admin: AdminClient, userId: string): Promise<void> {
+  const dreamId = crypto.randomUUID();
+  const previousDay = new Date(Date.now() - 86_400_000).toISOString();
+  const transcript = "A silver whale waited beyond the midnight bridge.";
+  const inserted = await admin.from("dreams").insert({
+    id: dreamId, user_id: userId, input_mode: "audio", status: "PLANNING",
+    transcript, raw_transcript: transcript,
+    audio_storage_path: `${userId}/${dreamId}/source.webm`, audio_mime_type: "audio/webm",
+    audio_size_bytes: 1, audio_uploaded_at: previousDay, audio_upload_expires_at: previousDay,
+    visual_style: "dream-cinema", quota_reserved_at: previousDay,
+  });
+  assertNoError(inserted.error);
+  const before = await currentUsage(admin);
+  const claimToken = crypto.randomUUID();
+  const args = {
+    p_dream_id: dreamId, p_user_id: userId, p_transcript: transcript,
+    p_claim_token: claimToken,
+  };
+  const claimed = await admin.rpc("claim_audio_plan_workflow", args);
+  const replay = await admin.rpc("claim_audio_plan_workflow", args);
+  assertNoError(claimed.error); assertNoError(replay.error);
+  z.object({ workflow_id: z.string(), claimed: z.literal(true) })
+    .array().length(1).parse(claimed.data);
+  z.object({ workflow_id: z.string(), claimed: z.literal(true) })
+    .array().length(1).parse(replay.data);
+  const after = await currentUsage(admin);
+  if (after - before !== STORY_SLOT_RESERVATION) {
+    throw new Error(`Audio planning retry reserved ${after - before} slots instead of 8`);
   }
 }
 

@@ -209,10 +209,18 @@ pnpm --dir web test:db:identity-cleanup-race:linked
 
 After changing dream admission, run the cross-day replay verifier. It creates and removes
 one anonymous session, covers preparation, upload, and ownerless processing retries, proves
-an existing workflow is not double-charged, and consumes 32 slots without calling a GPU:
+audio transcript confirmation is reserved, proves an existing workflow is not
+double-charged, and consumes 40 slots without calling a GPU:
 
 ```bash
 pnpm --dir web test:db:cross-day-reservation:linked
+```
+
+To verify only the audio transcript-confirmation handoff against the public project, use
+the focused eight-slot case:
+
+```bash
+pnpm --dir web test:db:cross-day-audio-plan:linked
 ```
 
 Run the destructive quota verifier only against an isolated Supabase test project:

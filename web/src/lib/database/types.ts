@@ -184,6 +184,7 @@ type DreamInsert = {
   user_id: string;
   input_mode: string;
   transcript?: string | null;
+  raw_transcript?: string | null;
   audio_storage_path?: string | null;
   audio_mime_type?: string | null;
   audio_size_bytes?: number | null;
