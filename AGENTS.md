@@ -72,3 +72,5 @@
   branch. Put every subsequent correction in a new forward migration and dry-run it alone.
 - Never use reserved retryable SQLSTATE `40001` for logical conflicts. PostgREST can retry
   it until the HTTP client times out; application conflicts use the project code `P4090`.
+- Derive acceptance scene counts from the persisted story or API response; never infer
+  them from the prompt, an earlier run, or a successful terminal status alone.
