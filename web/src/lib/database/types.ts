@@ -194,6 +194,7 @@ type DreamInsert = {
   retain_audio?: boolean;
   identity_reference_id?: string | null;
   visual_style?: VisualStyle;
+  workflow_run_id?: string | null;
   text_operation_key?: string | null;
   audio_operation_key?: string | null;
   quota_reserved_at?: string | null;
