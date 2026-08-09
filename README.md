@@ -204,6 +204,7 @@ before writing the file.
 
 ## Documentation
 
+- [Submission handoff](SUBMISSION.md)
 - [Deployment runbook](docs/DEPLOYMENT.md)
 - [Design decisions and tradeoffs](docs/DESIGN.md)
 - [Testing and acceptance plan](docs/TESTING.md)
